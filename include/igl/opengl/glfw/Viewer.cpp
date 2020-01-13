@@ -1,5 +1,3 @@
-
-
 // This file is part of libigl, a simple c++ geometry processing library.
 //
 // Copyright (C) 2014 Daniele Panozzo <daniele.panozzo@gmail.com>
@@ -9,6 +7,8 @@
 // obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "Viewer.h"
+
+#include "utils.h"
 
 #include <chrono>
 #include <thread>
@@ -32,6 +32,8 @@
 #include <igl/get_seconds.h>
 #include <igl/readOBJ.h>
 #include <igl/readOFF.h>
+//#include <igl/png/readPNG.h>
+//#include <igl/png/writePNG.h> 
 #include <igl/adjacency_list.h>
 #include <igl/writeOBJ.h>
 #include <igl/writeOFF.h>
@@ -45,16 +47,199 @@
 #include <igl/snap_to_canonical_view_quat.h>
 #include <igl/unproject.h>
 #include <igl/serialize.h>
-
-
-#include <igl/png/writePNG.h>
-#include <igl/png/readPNG.h>
+#include <openvr.h>
 
 // Internal global variables used for glfw event handling
 static igl::opengl::glfw::Viewer * __viewer;
 static double highdpi = 1;
 static double scroll_x = 0;
 static double scroll_y = 0;
+GLuint test, testA, screenTexture;
+
+vr::IVRSystem* hmd = nullptr;
+vr::TrackedDevicePose_t m_rTrackedDevicePose[vr::k_unMaxTrackedDeviceCount];
+
+
+/** Called by initOpenVR */
+std::string getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError = nullptr) {
+	uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, nullptr, 0, peError);
+	if (unRequiredBufferLen == 0) {
+		return "";
+	}
+
+	char* pchBuffer = new char[unRequiredBufferLen];
+	unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, pchBuffer, unRequiredBufferLen, peError);
+	std::string sResult = pchBuffer;
+	delete[] pchBuffer;
+
+	return sResult;
+}
+
+void handleVRError(vr::EVRInitError err)
+{
+	throw std::runtime_error(vr::VR_GetVRInitErrorAsEnglishDescription(err));
+}
+
+inline vr::IVRSystem *VR_Init(vr::EVRInitError *peError, vr::EVRApplicationType eApplicationType, const char *pStartupInfo)
+{
+	using namespace vr;
+	vr::IVRSystem *pVRSystem = nullptr;
+
+	vr::EVRInitError eError;
+	VRToken() = vr::VR_InitInternal2(&eError, eApplicationType, pStartupInfo);
+	COpenVRContext &ctx = OpenVRInternal_ModuleContext();
+	ctx.Clear();
+
+	if (eError == VRInitError_None)
+	{
+		if (VR_IsInterfaceVersionValid(vr::IVRSystem_Version))
+		{
+			pVRSystem = VRSystem();
+		}
+		else
+		{
+			VR_ShutdownInternal();
+			eError = VRInitError_Init_InterfaceNotFound;
+		}
+	}
+
+	if (peError)
+		*peError = eError;
+	return pVRSystem;
+}
+
+/** Call immediately before initializing OpenGL
+	\param hmdWidth, hmdHeight recommended render target resolution
+*/
+vr::IVRSystem* initOpenVR(uint32_t& hmdWidth, uint32_t& hmdHeight) {
+	vr::EVRInitError err = vr::VRInitError_None;
+	hmd = vr::VR_Init(&err, vr::VRApplication_Scene);
+
+	if (err != vr::VRInitError_None)
+	{
+		handleVRError(err);
+	}
+
+	std::clog << GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String) << std::endl;
+	std::clog << GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String) << std::endl;
+
+
+
+	const std::string& driver = getHMDString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
+	const std::string& model = getHMDString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_ModelNumber_String);
+	const std::string& serial = getHMDString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
+	const float freq = hmd->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_DisplayFrequency_Float);
+
+	//get the proper resolution of the hmd
+	hmd->GetRecommendedRenderTargetSize(&hmdWidth, &hmdHeight);
+
+	fprintf(stderr, "HMD: %s '%s' #%s (%d x %d @ %g Hz)\n", driver.c_str(), model.c_str(), serial.c_str(), hmdWidth, hmdHeight, freq);
+
+	// Initialize the compositor
+	vr::IVRCompositor* compositor = vr::VRCompositor();
+	if (!compositor) {
+		fprintf(stderr, "OpenVR Compositor initialization failed. See log file for details\n");
+		vr::VR_Shutdown();
+		assert("VR failed" && false);
+	}
+
+	return hmd;
+}
+
+
+/**
+ */
+void getEyeTransformations
+(vr::IVRSystem*  hmd,
+	vr::TrackedDevicePose_t* trackedDevicePose,
+	float           nearPlaneZ,
+	float           farPlaneZ,
+	float*          headToWorldRowMajor3x4,
+	float*          ltEyeToHeadRowMajor3x4,
+	float*          rtEyeToHeadRowMajor3x4,
+	float*          ltProjectionMatrixRowMajor4x4,
+	float*          rtProjectionMatrixRowMajor4x4) {
+
+	assert(nearPlaneZ < 0.0f && farPlaneZ < nearPlaneZ);
+
+	vr::VRCompositor()->WaitGetPoses(trackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+
+#   if defined(_DEBUG) && 0
+	fprintf(stderr, "Devices tracked this frame: \n");
+	int poseCount = 0;
+	for (int d = 0; d < vr::k_unMaxTrackedDeviceCount; ++d) {
+		if (trackedDevicePose[d].bPoseIsValid) {
+			++poseCount;
+			switch (hmd->GetTrackedDeviceClass(d)) {
+			case vr::TrackedDeviceClass_Controller:        fprintf(stderr, "   Controller: ["); break;
+			case vr::TrackedDeviceClass_HMD:               fprintf(stderr, "   HMD: ["); break;
+			case vr::TrackedDeviceClass_Invalid:           fprintf(stderr, "   <invalid>: ["); break;
+			case vr::TrackedDeviceClass_Other:             fprintf(stderr, "   Other: ["); break;
+			case vr::TrackedDeviceClass_TrackingReference: fprintf(stderr, "   Reference: ["); break;
+			default:                                       fprintf(stderr, "   ???: ["); break;
+			}
+			for (int r = 0; r < 3; ++r) {
+				for (int c = 0; c < 4; ++c) {
+					fprintf(stderr, "%g, ", trackedDevicePose[d].mDeviceToAbsoluteTracking.m[r][c]);
+				}
+			}
+			fprintf(stderr, "]\n");
+		}
+	}
+	fprintf(stderr, "\n");
+#   endif
+
+	assert(trackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid);
+	const vr::HmdMatrix34_t head = trackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
+
+	const vr::HmdMatrix34_t& ltMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Left);
+	const vr::HmdMatrix34_t& rtMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Right);
+
+	for (int r = 0; r < 3; ++r) {
+		for (int c = 0; c < 4; ++c) {
+			ltEyeToHeadRowMajor3x4[r * 4 + c] = ltMatrix.m[r][c];
+			rtEyeToHeadRowMajor3x4[r * 4 + c] = rtMatrix.m[r][c];
+			headToWorldRowMajor3x4[r * 4 + c] = head.m[r][c];
+		}
+	}
+
+	const vr::HmdMatrix44_t& ltProj = hmd->GetProjectionMatrix(vr::Eye_Left, -nearPlaneZ, -farPlaneZ);
+	const vr::HmdMatrix44_t& rtProj = hmd->GetProjectionMatrix(vr::Eye_Right, -nearPlaneZ, -farPlaneZ);
+
+	for (int r = 0; r < 4; ++r) {
+		for (int c = 0; c < 4; ++c) {
+			ltProjectionMatrixRowMajor4x4[r * 4 + c] = ltProj.m[r][c];
+			rtProjectionMatrixRowMajor4x4[r * 4 + c] = rtProj.m[r][c];
+		}
+	}
+}
+
+
+
+/** Call immediately before OpenGL swap buffers */
+void submitToHMD(GLint ltEyeTexture, GLint rtEyeTexture, bool isGammaEncoded) {
+	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+
+	vr::EColorSpace colorSpace = isGammaEncoded ? vr::ColorSpace_Gamma : vr::ColorSpace_Linear;
+
+	//vr::Texture_t lt = { (void*)(uintptr_t)ltEyeTexture, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+
+	vr::Texture_t lt = { reinterpret_cast<void*>(intptr_t(screenTexture)), vr::TextureType_OpenGL, colorSpace };
+	vr::VRCompositor()->Submit(vr::Eye_Left, &lt);
+
+	//vr::Texture_t rt = { (void*)(uintptr_t)rtEyeTexture, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+
+
+	vr::Texture_t rt = { reinterpret_cast<void*>(intptr_t(screenTexture)), vr::TextureType_OpenGL, colorSpace };
+	vr::VRCompositor()->Submit(vr::Eye_Right, &rt);
+
+	// Tell the compositor to begin work immediately instead of waiting for the next WaitGetPoses() call
+	vr::VRCompositor()->PostPresentHandoff();
+	glClearColor(0, 0, 0, 1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+
 
 static void glfw_mouse_press(GLFWwindow* window, int button, int action, int modifier)
 {
@@ -88,6 +273,7 @@ static void glfw_key_callback(GLFWwindow* window, int key, int scancode, int act
 {
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, GL_TRUE);
+
 
 	if (action == GLFW_PRESS)
 		__viewer->key_down(key, modifier);
@@ -129,19 +315,25 @@ namespace igl
 		namespace glfw
 		{
 
-			IGL_INLINE int Viewer::launch(bool resizable /*= true*/, bool fullscreen /*= false*/,
-				const std::string &name, int windowWidth /*= 0*/, int windowHeight /*= 0*/)
+			IGL_INLINE int Viewer::launch(bool resizable, bool fullscreen)
 			{
 				// TODO return values are being ignored...
-				launch_init(resizable, fullscreen, name, windowWidth, windowHeight);
+				launch_init(resizable, fullscreen);
 				launch_rendering(true);
 				launch_shut();
 				return EXIT_SUCCESS;
 			}
 
-			IGL_INLINE int  Viewer::launch_init(bool resizable, bool fullscreen,
-				const std::string &name, int windowWidth, int windowHeight)
+			IGL_INLINE int  Viewer::launch_init(bool resizable, bool fullscreen)
 			{
+				uint32_t framebufferWidth = 1280, framebufferHeight = 720;
+				const int numEyes = 2;
+				//hmd = initOpenVR(framebufferWidth, framebufferHeight);
+				vr::EVRInitError eError = vr::VRInitError_None;
+				hmd = vr::VR_Init(&eError, vr::VRApplication_Scene);
+				assert(hmd);
+
+
 				glfwSetErrorCallback(glfw_error_callback);
 				if (!glfwInit())
 				{
@@ -153,28 +345,22 @@ namespace igl
 #ifdef __APPLE__
 				glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 				glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+				glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_TRUE);
 #endif
 				if (fullscreen)
 				{
 					GLFWmonitor *monitor = glfwGetPrimaryMonitor();
 					const GLFWvidmode *mode = glfwGetVideoMode(monitor);
-					window = glfwCreateWindow(mode->width, mode->height, name.c_str(), monitor, nullptr);
-					windowWidth = mode->width;
-					windowHeight = mode->height;
+					window = glfwCreateWindow(mode->width, mode->height, "libigl viewer", monitor, nullptr);
 				}
 				else
 				{
-					// Set default windows width
-					if (windowWidth <= 0 & core_list.size() == 1 && core().viewport[2] > 0)
-						windowWidth = core().viewport[2];
-					else if (windowWidth <= 0)
-						windowWidth = 1280;
-					// Set default windows height
-					if (windowHeight <= 0 & core_list.size() == 1 && core().viewport[3] > 0)
-						windowHeight = core().viewport[3];
-					else if (windowHeight <= 0)
-						windowHeight = 800;
-					window = glfwCreateWindow(windowWidth, windowHeight, name.c_str(), nullptr, nullptr);
+					if (core.viewport.tail<2>().any()) {
+						window = glfwCreateWindow(core.viewport(2), core.viewport(3), "libigl viewer", nullptr, nullptr);
+					}
+					else {
+						window = glfwCreateWindow(1280, 800, "libigl viewer", nullptr, nullptr);
+					}
 				}
 				if (!window)
 				{
@@ -214,14 +400,21 @@ namespace igl
 				glfwGetFramebufferSize(window, &width, &height);
 				int width_window, height_window;
 				glfwGetWindowSize(window, &width_window, &height_window);
-				highdpi = windowWidth / width_window;
+				highdpi = width / width_window;
 				glfw_window_size(window, width_window, height_window);
 				//opengl.init();
-				core().align_camera_center(data().V, data().F);
+				core.align_camera_center(data().V, data().F);
+
+
+
+
+
 				// Initialize IGL viewer
 				init();
 				return EXIT_SUCCESS;
 			}
+
+
 
 			IGL_INLINE bool Viewer::launch_rendering(bool loop)
 			{
@@ -229,83 +422,170 @@ namespace igl
 				// Rendering loop
 				const int num_extra_frames = 5;
 				int frame_counter = 0;
-				int left = true;
+				uint32_t m_nRenderWidth;
+				uint32_t m_nRenderHeight;
+				hmd->GetRecommendedRenderTargetSize(&m_nRenderWidth, &m_nRenderHeight);
+
+				//Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> imr, img, imb, ima;
+				//igl::png::readPNG("../data/bun.png", imr, img, imb,ima);
+				//igl::png::writePNG(imr, img, imb, ima, "../data/write_out.png");
+				//int cols, rows, n;
+				//unsigned char *data = stbi_load("../data/bun.png", &cols, &rows, &n, 0);
+
+				/*glGenTextures(1, &test);
+				glBindTexture(GL_TEXTURE_2D, test);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_nRenderWidth, m_nRenderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, test, 0);*/
+
+				unsigned int framebuffer;
+				glGenFramebuffers(1, &framebuffer);
+
+				unsigned int textureColorBufferMultiSampled;
+				glGenTextures(1, &textureColorBufferMultiSampled);
+				unsigned int rbo;
+				glGenRenderbuffers(1, &rbo);
+				unsigned int intermediateFBO;
+				glGenFramebuffers(1, &intermediateFBO);
+				glGenTextures(1, &screenTexture);
+
 				while (!glfwWindowShouldClose(window))
 				{
-					double tic = get_seconds();
-					if (left) {
-						core().camera_eye << -3, 0, 5;
+					  double tic = get_seconds();
 
-						draw();
-						// Allocate temporary buffers
-						Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> R(1280, 800);
-						Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> G(1280, 800);
-						Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> B(1280, 800);
-						Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> A(1280, 800);
+					  //MARKER
+					  
+					  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+					  // create a multisampled color attachment texture
+					  
+					  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
+					  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA, m_nRenderWidth, m_nRenderHeight, GL_TRUE);
+					  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);
+					  // create a (also multisampled) renderbuffer object for depth and stencil attachments
+					  
+					  glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+					  glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, m_nRenderWidth, m_nRenderHeight);
+					  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+					  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+					  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+					  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-						// Draw the scene in the buffers
-						core().draw_buffer(
-							data(), false, R, G, B, A);
+					  // configure second post-processing framebuffer
+					  
+					  glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
+					  // create a color attachment texture
 
-						// Save it to a PNG
-						igl::png::writePNG(R, G, B, A, "left.png");
+					  glBindTexture(GL_TEXTURE_2D, screenTexture);
+					  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_nRenderWidth, m_nRenderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+					  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenTexture, 0);	// we only need a color buffer
+					  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+					  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+					  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+					  core.viewport << 0, 0, m_nRenderWidth, m_nRenderHeight;
+					 // Clear the buffer
+					  glClearColor(0.3, 0.3, 0.5, 0.f);
+					  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+					  //// Save old viewport
+					  //Eigen::Vector4f viewport_ori = viewport;
+					  // Draw
+					  draw_for_vr();
+					  // Restore viewport
+					  //viewport = viewport_ori;
 
-						std::cout << "left";
-					}
+					  glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+					  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
+					  glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-					else {
+					  glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
 
-						core().camera_eye << 3, 0, 5;
-						draw();
-						// Allocate temporary buffers
-						Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> R(1280, 800);
-						Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> G(1280, 800);
-						Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> B(1280, 800);
-						Eigen::Matrix<unsigned char, Eigen::Dynamic, Eigen::Dynamic> A(1280, 800);
+					//test = core.draw_buffer(data_list[0], m_nRenderWidth, m_nRenderHeight);
 
-						// Draw the scene in the buffers
-						core().draw_buffer(
-							data(), false, R, G, B, A);
+					
+					submitToHMD(test, test, true);
+					//submitToHMD(data_list[0].meshgl.vbo_tex, data_list[0].meshgl.vbo_tex, true);
+					
 
-						// Save it to a PNG
-						igl::png::writePNG(R, G, B, A, "right.png");
-
-						std::cout << "right";
-					}
-
-					left = !left;
-
+					draw();
 					glfwSwapBuffers(window);
-					if (core().is_animating || frame_counter++ < num_extra_frames)
-					{
-						glfwPollEvents();
-						// In microseconds
-						double duration = 1000000.*(get_seconds() - tic);
-						const double min_duration = 1000000. / core().animation_max_fps;
-						if (duration < min_duration)
-						{
-							std::this_thread::sleep_for(std::chrono::microseconds((int)(min_duration - duration)));
-						}
-					}
-					else
-					{
-						glfwWaitEvents();
-						frame_counter = 0;
-					}
+
+					  if(core.is_animating || frame_counter++ < num_extra_frames)
+					  {
+					    glfwPollEvents();
+					    // In microseconds
+					    double duration = 1000000.*(get_seconds()-tic);
+					    const double min_duration = 1000000./core.animation_max_fps;
+					    if(duration<min_duration)
+					    {
+					      std::this_thread::sleep_for(std::chrono::microseconds((int)(min_duration-duration)));
+					    }
+					  }
+					  else
+					  {
+					    glfwWaitEvents();
+					    frame_counter = 0;
+					  }
 					if (!loop)
 						return !glfwWindowShouldClose(window);
-
-#ifdef __APPLE__
-					static bool first_time_hack = true;
-					if (first_time_hack) {
-						glfwHideWindow(window);
-						glfwShowWindow(window);
-						first_time_hack = false;
-					}
-#endif
 				}
+				//MARKER
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+				glBindFramebuffer(GL_FRAMEBUFFER, 0);
+				glDeleteTextures(1, &screenTexture);
+				glDeleteTextures(1, &textureColorBufferMultiSampled);
+				glDeleteFramebuffers(1, &framebuffer);
+				glDeleteFramebuffers(1, &intermediateFBO);
+				glDeleteRenderbuffers(1, &rbo);
+				//MARKER
 				return EXIT_SUCCESS;
+			}
+
+			//MARKER
+			IGL_INLINE void Viewer::draw_for_vr()
+			{
+				using namespace std;
+				using namespace Eigen;
+
+				uint32_t width, height;
+				hmd->GetRecommendedRenderTargetSize(&width, &height);
+
+				//core.clear_framebuffers();
+				for (unsigned int i = 0; i < plugins.size(); ++i)
+				{
+					if (plugins[i]->pre_draw())
+					{
+						return;
+					}
+				}
+				if (callback_pre_draw)
+				{
+					if (callback_pre_draw(*this))
+					{
+						return;
+					}
+				}
+
+				core.draw(data_list[0], true);
+
+				for (unsigned int i = 0; i < plugins.size(); ++i)
+				{
+					if (plugins[i]->post_draw())
+					{
+						break;
+					}
+				}
+				if (callback_post_draw)
+				{
+					if (callback_post_draw(*this))
+					{
+						return;
+					}
+				}
 			}
 
 			IGL_INLINE void Viewer::launch_shut()
@@ -314,7 +594,7 @@ namespace igl
 				{
 					data.meshgl.free();
 				}
-				core().shut(); // Doesn't do anything
+				core.shut();
 				shutdown_plugins();
 				glfwDestroyWindow(window);
 				glfwTerminate();
@@ -323,7 +603,7 @@ namespace igl
 
 			IGL_INLINE void Viewer::init()
 			{
-				core().init(); // Doesn't do anything
+				core.init();
 
 				if (callback_init)
 					if (callback_init(*this))
@@ -352,15 +632,10 @@ namespace igl
 			IGL_INLINE Viewer::Viewer() :
 				data_list(1),
 				selected_data_index(0),
-				next_data_id(1),
-				selected_core_index(0),
-				next_core_id(2)
+				next_data_id(1)
 			{
 				window = nullptr;
 				data_list.front().id = 0;
-
-				core_list.emplace_back(ViewerCore());
-				core_list.front().id = 1;
 
 				// Temporary variables initialization
 				down = false;
@@ -492,8 +767,8 @@ namespace igl
 				{
 					data().grid_texture();
 				}
-				for (int i = 0; i < core_list.size(); i++)
-					core_list[i].align_camera_center(data().V, data().F);
+
+				core.align_camera_center(data().V, data().F);
 
 				for (unsigned int i = 0; i < plugins.size(); ++i)
 					if (plugins[i]->post_load())
@@ -565,7 +840,7 @@ namespace igl
 				case 'A':
 				case 'a':
 				{
-					core().is_animating = !core().is_animating;
+					core.is_animating = !core.is_animating;
 					return true;
 				}
 				case 'F':
@@ -584,19 +859,19 @@ namespace igl
 				case 'L':
 				case 'l':
 				{
-					core().toggle(data().show_lines);
+					data().show_lines = !data().show_lines;
 					return true;
 				}
 				case 'O':
 				case 'o':
 				{
-					core().orthographic = !core().orthographic;
+					core.orthographic = !core.orthographic;
 					return true;
 				}
 				case 'T':
 				case 't':
 				{
-					core().toggle(data().show_faces);
+					data().show_faces = !data().show_faces;
 					return true;
 				}
 				case 'Z':
@@ -607,10 +882,10 @@ namespace igl
 				case '[':
 				case ']':
 				{
-					if (core().rotation_type == ViewerCore::ROTATION_TYPE_TRACKBALL)
-						core().set_rotation_type(ViewerCore::ROTATION_TYPE_TWO_AXIS_VALUATOR_FIXED_UP);
+					if (core.rotation_type == ViewerCore::ROTATION_TYPE_TRACKBALL)
+						core.set_rotation_type(ViewerCore::ROTATION_TYPE_TWO_AXIS_VALUATOR_FIXED_UP);
 					else
-						core().set_rotation_type(ViewerCore::ROTATION_TYPE_TRACKBALL);
+						core.set_rotation_type(ViewerCore::ROTATION_TYPE_TRACKBALL);
 
 					return true;
 				}
@@ -619,13 +894,6 @@ namespace igl
 				{
 					selected_data_index =
 						(selected_data_index + data_list.size() + (unicode_key == '>' ? 1 : -1)) % data_list.size();
-					return true;
-				}
-				case '{':
-				case '}':
-				{
-					selected_core_index =
-						(selected_core_index + core_list.size() + (unicode_key == '}' ? 1 : -1)) % core_list.size();
 					return true;
 				}
 				case ';':
@@ -665,25 +933,6 @@ namespace igl
 				return false;
 			}
 
-			IGL_INLINE void Viewer::select_hovered_core()
-			{
-				int width_window, height_window;
-				glfwGetFramebufferSize(window, &width_window, &height_window);
-				for (int i = 0; i < core_list.size(); i++)
-				{
-					Eigen::Vector4f viewport = core_list[i].viewport;
-
-					if ((current_mouse_x > viewport[0]) &&
-						(current_mouse_x < viewport[0] + viewport[2]) &&
-						((height_window - current_mouse_y) > viewport[1]) &&
-						((height_window - current_mouse_y) < viewport[1] + viewport[3]))
-					{
-						selected_core_index = i;
-						break;
-					}
-				}
-			}
-
 			IGL_INLINE bool Viewer::mouse_down(MouseButton button, int modifier)
 			{
 				// Remember mouse location at down even if used by callback/plugin
@@ -700,10 +949,7 @@ namespace igl
 
 				down = true;
 
-				// Select the core containing the click location.
-				select_hovered_core();
-
-				down_translation = core().camera_translation;
+				down_translation = core.camera_translation;
 
 
 				// Initialization code for the trackball
@@ -720,18 +966,18 @@ namespace igl
 				Eigen::Vector3f coord =
 					igl::project(
 						Eigen::Vector3f(center(0), center(1), center(2)),
-						core().view,
-						core().proj,
-						core().viewport);
+						core.view,
+						core.proj,
+						core.viewport);
 				down_mouse_z = coord[2];
-				down_rotation = core().trackball_angle;
+				down_rotation = core.trackball_angle;
 
 				mouse_mode = MouseMode::Rotation;
 
 				switch (button)
 				{
 				case MouseButton::Left:
-					if (core().rotation_type == ViewerCore::ROTATION_TYPE_NO_ROTATION) {
+					if (core.rotation_type == ViewerCore::ROTATION_TYPE_NO_ROTATION) {
 						mouse_mode = MouseMode::Translation;
 					}
 					else {
@@ -787,18 +1033,13 @@ namespace igl
 					if (callback_mouse_move(*this, mouse_x, mouse_y))
 						return true;
 
-
 				if (down)
 				{
-					// We need the window height to transform the mouse click coordinates into viewport-mouse-click coordinates
-					// for igl::trackball and igl::two_axis_valuator_fixed_up
-					int width_window, height_window;
-					glfwGetFramebufferSize(window, &width_window, &height_window);
 					switch (mouse_mode)
 					{
 					case MouseMode::Rotation:
 					{
-						switch (core().rotation_type)
+						switch (core.rotation_type)
 						{
 						default:
 							assert(false && "Unknown rotation type");
@@ -806,29 +1047,26 @@ namespace igl
 							break;
 						case ViewerCore::ROTATION_TYPE_TRACKBALL:
 							igl::trackball(
-								core().viewport(2),
-								core().viewport(3),
+								core.viewport(2),
+								core.viewport(3),
 								2.0f,
 								down_rotation,
-								down_mouse_x - core().viewport(0),
-								down_mouse_y - (height_window - core().viewport(1) - core().viewport(3)),
-								mouse_x - core().viewport(0),
-								mouse_y - (height_window - core().viewport(1) - core().viewport(3)),
-								core().trackball_angle);
+								down_mouse_x,
+								down_mouse_y,
+								mouse_x,
+								mouse_y,
+								core.trackball_angle);
 							break;
 						case ViewerCore::ROTATION_TYPE_TWO_AXIS_VALUATOR_FIXED_UP:
 							igl::two_axis_valuator_fixed_up(
-								core().viewport(2), core().viewport(3),
+								core.viewport(2), core.viewport(3),
 								2.0,
 								down_rotation,
-								down_mouse_x - core().viewport(0),
-								down_mouse_y - (height_window - core().viewport(1) - core().viewport(3)),
-								mouse_x - core().viewport(0),
-								mouse_y - (height_window - core().viewport(1) - core().viewport(3)),
-								core().trackball_angle);
+								down_mouse_x, down_mouse_y, mouse_x, mouse_y,
+								core.trackball_angle);
 							break;
 						}
-						//Eigen::Vector4f snapq = core().trackball_angle;
+						//Eigen::Vector4f snapq = core.trackball_angle;
 
 						break;
 					}
@@ -836,18 +1074,18 @@ namespace igl
 					case MouseMode::Translation:
 					{
 						//translation
-						Eigen::Vector3f pos1 = igl::unproject(Eigen::Vector3f(mouse_x, core().viewport[3] - mouse_y, down_mouse_z), core().view, core().proj, core().viewport);
-						Eigen::Vector3f pos0 = igl::unproject(Eigen::Vector3f(down_mouse_x, core().viewport[3] - down_mouse_y, down_mouse_z), core().view, core().proj, core().viewport);
+						Eigen::Vector3f pos1 = igl::unproject(Eigen::Vector3f(mouse_x, core.viewport[3] - mouse_y, down_mouse_z), core.view, core.proj, core.viewport);
+						Eigen::Vector3f pos0 = igl::unproject(Eigen::Vector3f(down_mouse_x, core.viewport[3] - down_mouse_y, down_mouse_z), core.view, core.proj, core.viewport);
 
 						Eigen::Vector3f diff = pos1 - pos0;
-						core().camera_translation = down_translation + Eigen::Vector3f(diff[0], diff[1], diff[2]);
+						core.camera_translation = down_translation + Eigen::Vector3f(diff[0], diff[1], diff[2]);
 
 						break;
 					}
 					case MouseMode::Zoom:
 					{
 						float delta = 0.001f * (mouse_x - down_mouse_x + mouse_y - down_mouse_y);
-						core().camera_zoom *= 1 + delta;
+						core.camera_zoom *= 1 + delta;
 						down_mouse_x = mouse_x;
 						down_mouse_y = mouse_y;
 						break;
@@ -862,10 +1100,6 @@ namespace igl
 
 			IGL_INLINE bool Viewer::mouse_scroll(float delta_y)
 			{
-				// Direct the scrolling operation to the appropriate viewport
-				// (unless the core selection is locked by an ongoing mouse interaction).
-				if (!down)
-					select_hovered_core();
 				scroll_position += delta_y;
 
 				for (unsigned int i = 0; i < plugins.size(); ++i)
@@ -881,7 +1115,7 @@ namespace igl
 				{
 					float mult = (1.0 + ((delta_y > 0) ? 1. : -1.)*0.05);
 					const float min_zoom = 0.1f;
-					core().camera_zoom = (core().camera_zoom * mult > min_zoom ? core().camera_zoom * mult : min_zoom);
+					core.camera_zoom = (core.camera_zoom * mult > min_zoom ? core.camera_zoom * mult : min_zoom);
 				}
 				return true;
 			}
@@ -896,7 +1130,7 @@ namespace igl
 
 			IGL_INLINE bool Viewer::load_scene(std::string fname)
 			{
-				igl::deserialize(core(), "Core", fname.c_str());
+				igl::deserialize(core, "Core", fname.c_str());
 				igl::deserialize(data(), "Data", fname.c_str());
 				return true;
 			}
@@ -911,7 +1145,7 @@ namespace igl
 
 			IGL_INLINE bool Viewer::save_scene(std::string fname)
 			{
-				igl::serialize(core(), "Core", fname.c_str(), true);
+				igl::serialize(core, "Core", fname.c_str(), true);
 				igl::serialize(data(), "Data", fname.c_str());
 
 				return true;
@@ -928,7 +1162,7 @@ namespace igl
 				int width_window, height_window;
 				glfwGetWindowSize(window, &width_window, &height_window);
 
-				auto highdpi_tmp = (width_window == 0 || width == 0) ? highdpi : (width / width_window);
+				auto highdpi_tmp = width / width_window;
 
 				if (fabs(highdpi_tmp - highdpi) > 1e-8)
 				{
@@ -936,11 +1170,7 @@ namespace igl
 					highdpi = highdpi_tmp;
 				}
 
-				for (auto& core : core_list)
-				{
-					core.clear_framebuffers();
-				}
-
+				core.clear_framebuffers();
 				for (unsigned int i = 0; i < plugins.size(); ++i)
 				{
 					if (plugins[i]->pre_draw())
@@ -956,16 +1186,8 @@ namespace igl
 					}
 				}
 
-				for (auto& core : core_list)
-				{
-					for (auto& mesh : data_list)
-					{
-						if (mesh.is_visible & core.id)
-						{
-							core.draw(mesh);
-						}
-					}
-				}
+				core.draw(data_list[0]);
+
 				for (unsigned int i = 0; i < plugins.size(); ++i)
 				{
 					if (plugins[i]->post_draw())
@@ -992,29 +1214,17 @@ namespace igl
 
 			IGL_INLINE void Viewer::post_resize(int w, int h)
 			{
-				if (core_list.size() == 1)
-				{
-					core().viewport = Eigen::Vector4f(0, 0, w, h);
-				}
-				else
-				{
-					// It is up to the user to define the behavior of the post_resize() function
-					// when there are multiple viewports (through the `callback_post_resize` callback)
-				}
+				core.viewport = Eigen::Vector4f(0, 0, w, h);
 				for (unsigned int i = 0; i < plugins.size(); ++i)
 				{
 					plugins[i]->post_resize(w, h);
-				}
-				if (callback_post_resize)
-				{
-					callback_post_resize(*this, w, h);
 				}
 			}
 
 			IGL_INLINE void Viewer::snap_to_canonical_quaternion()
 			{
-				Eigen::Quaternionf snapq = this->core().trackball_angle;
-				igl::snap_to_canonical_view_quat(snapq, 1.0f, this->core().trackball_angle);
+				Eigen::Quaternionf snapq = this->core.trackball_angle;
+				igl::snap_to_canonical_view_quat(snapq, 1.0f, this->core.trackball_angle);
 			}
 
 			IGL_INLINE void Viewer::open_dialog_load_mesh()
@@ -1037,46 +1247,22 @@ namespace igl
 				this->save_mesh_to_file(fname.c_str());
 			}
 
-			IGL_INLINE ViewerData& Viewer::data(int mesh_id /*= -1*/)
+			IGL_INLINE ViewerData& Viewer::data()
 			{
 				assert(!data_list.empty() && "data_list should never be empty");
-				int index;
-				if (mesh_id == -1)
-					index = selected_data_index;
-				else
-					index = mesh_index(mesh_id);
-
-				assert((index >= 0 && index < data_list.size()) &&
-					"selected_data_index or mesh_id should be in bounds");
-				return data_list[index];
+				assert(
+					(selected_data_index >= 0 && selected_data_index < data_list.size()) &&
+					"selected_data_index should be in bounds");
+				return data_list[selected_data_index];
 			}
 
-			IGL_INLINE const ViewerData& Viewer::data(int mesh_id /*= -1*/) const
-			{
-				assert(!data_list.empty() && "data_list should never be empty");
-				int index;
-				if (mesh_id == -1)
-					index = selected_data_index;
-				else
-					index = mesh_index(mesh_id);
-
-				assert((index >= 0 && index < data_list.size()) &&
-					"selected_data_index or mesh_id should be in bounds");
-				return data_list[index];
-			}
-
-			IGL_INLINE int Viewer::append_mesh(bool visible /*= true*/)
+			IGL_INLINE int Viewer::append_mesh()
 			{
 				assert(data_list.size() >= 1);
 
 				data_list.emplace_back();
 				selected_data_index = data_list.size() - 1;
 				data_list.back().id = next_data_id++;
-				if (visible)
-					for (int i = 0; i < core_list.size(); i++)
-						data_list.back().set_visible(true, core_list[i].id);
-				else
-					data_list.back().is_visible = 0;
 				return data_list.back().id;
 			}
 
@@ -1095,7 +1281,6 @@ namespace igl
 				{
 					selected_data_index--;
 				}
-
 				return true;
 			}
 
@@ -1108,76 +1293,7 @@ namespace igl
 				return 0;
 			}
 
-			IGL_INLINE ViewerCore& Viewer::core(unsigned core_id /*= 0*/)
-			{
-				assert(!core_list.empty() && "core_list should never be empty");
-				int core_index;
-				if (core_id == 0)
-					core_index = selected_core_index;
-				else
-					core_index = this->core_index(core_id);
-				assert((core_index >= 0 && core_index < core_list.size()) && "selected_core_index should be in bounds");
-				return core_list[core_index];
-			}
-
-			IGL_INLINE const ViewerCore& Viewer::core(unsigned core_id /*= 0*/) const
-			{
-				assert(!core_list.empty() && "core_list should never be empty");
-				int core_index;
-				if (core_id == 0)
-					core_index = selected_core_index;
-				else
-					core_index = this->core_index(core_id);
-				assert((core_index >= 0 && core_index < core_list.size()) && "selected_core_index should be in bounds");
-				return core_list[core_index];
-			}
-
-			IGL_INLINE bool Viewer::erase_core(const size_t index)
-			{
-				assert((index >= 0 && index < core_list.size()) && "index should be in bounds");
-				assert(data_list.size() >= 1);
-				if (core_list.size() == 1)
-				{
-					// Cannot remove last viewport
-					return false;
-				}
-				core_list[index].shut(); // does nothing
-				core_list.erase(core_list.begin() + index);
-				if (selected_core_index >= index && selected_core_index > 0)
-				{
-					selected_core_index--;
-				}
-				return true;
-			}
-
-			IGL_INLINE size_t Viewer::core_index(const int id) const {
-				for (size_t i = 0; i < core_list.size(); ++i)
-				{
-					if (core_list[i].id == id)
-						return i;
-				}
-				return 0;
-			}
-
-			IGL_INLINE int Viewer::append_core(Eigen::Vector4f viewport, bool append_empty /*= false*/)
-			{
-				core_list.push_back(core()); // copies the previous active core and only changes the viewport
-				core_list.back().viewport = viewport;
-				core_list.back().id = next_core_id;
-				next_core_id <<= 1;
-				if (!append_empty)
-				{
-					for (auto &data : data_list)
-					{
-						data.set_visible(true, core_list.back().id);
-						data.copy_options(core(), core_list.back());
-					}
-				}
-				selected_core_index = core_list.size() - 1;
-				return core_list.back().id;
-			}
 
 		} // end namespace
 	} // end namespace
 }
-

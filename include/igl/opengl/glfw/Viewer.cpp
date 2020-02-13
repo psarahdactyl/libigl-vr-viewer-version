@@ -56,6 +56,7 @@ static double highdpi = 1;
 static double scroll_x = 0;
 static double scroll_y = 0;
 GLuint test, testA, screenTexture;
+Eigen::Matrix4f lEyeMat, rEyeMat, headWorldMat, lProjectionMat, rProjectionMat;
 
 vr::IVRSystem* hmd = nullptr;
 vr::TrackedDevicePose_t m_rTrackedDevicePose[vr::k_unMaxTrackedDeviceCount];
@@ -147,11 +148,13 @@ vr::IVRSystem* initOpenVR(uint32_t& hmdWidth, uint32_t& hmdHeight) {
 	return hmd;
 }
 
+float nearPlaneZ = 0.1f;
+float farPlaneZ = 30.0f;
 
 /**
  */
 void getEyeTransformations
-(vr::IVRSystem*  hmd,
+(/*vr::IVRSystem*  hmd,
 	vr::TrackedDevicePose_t* trackedDevicePose,
 	float           nearPlaneZ,
 	float           farPlaneZ,
@@ -159,60 +162,75 @@ void getEyeTransformations
 	float*          ltEyeToHeadRowMajor3x4,
 	float*          rtEyeToHeadRowMajor3x4,
 	float*          ltProjectionMatrixRowMajor4x4,
-	float*          rtProjectionMatrixRowMajor4x4) {
+	float*          rtProjectionMatrixRowMajor4x4*/) {
 
 	assert(nearPlaneZ < 0.0f && farPlaneZ < nearPlaneZ);
 
-	vr::VRCompositor()->WaitGetPoses(trackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
 
-#   if defined(_DEBUG) && 0
+//#   if defined(_DEBUG) && 0
 	fprintf(stderr, "Devices tracked this frame: \n");
 	int poseCount = 0;
 	for (int d = 0; d < vr::k_unMaxTrackedDeviceCount; ++d) {
-		if (trackedDevicePose[d].bPoseIsValid) {
+		if (m_rTrackedDevicePose[d].bPoseIsValid) {
 			++poseCount;
 			switch (hmd->GetTrackedDeviceClass(d)) {
 			case vr::TrackedDeviceClass_Controller:        fprintf(stderr, "   Controller: ["); break;
 			case vr::TrackedDeviceClass_HMD:               fprintf(stderr, "   HMD: ["); break;
 			case vr::TrackedDeviceClass_Invalid:           fprintf(stderr, "   <invalid>: ["); break;
-			case vr::TrackedDeviceClass_Other:             fprintf(stderr, "   Other: ["); break;
+			//case vr::TrackedDeviceClass_Other:             fprintf(stderr, "   Other: ["); break;
 			case vr::TrackedDeviceClass_TrackingReference: fprintf(stderr, "   Reference: ["); break;
 			default:                                       fprintf(stderr, "   ???: ["); break;
 			}
 			for (int r = 0; r < 3; ++r) {
 				for (int c = 0; c < 4; ++c) {
-					fprintf(stderr, "%g, ", trackedDevicePose[d].mDeviceToAbsoluteTracking.m[r][c]);
+					fprintf(stderr, "%g, ", m_rTrackedDevicePose[d].mDeviceToAbsoluteTracking.m[r][c]);
 				}
 			}
 			fprintf(stderr, "]\n");
 		}
 	}
 	fprintf(stderr, "\n");
-#   endif
+//#   endif
 
-	assert(trackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid);
-	const vr::HmdMatrix34_t head = trackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
+	assert(m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid);
+	const vr::HmdMatrix34_t head = m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
 
 	const vr::HmdMatrix34_t& ltMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Left);
 	const vr::HmdMatrix34_t& rtMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Right);
 
-	for (int r = 0; r < 3; ++r) {
-		for (int c = 0; c < 4; ++c) {
-			ltEyeToHeadRowMajor3x4[r * 4 + c] = ltMatrix.m[r][c];
-			rtEyeToHeadRowMajor3x4[r * 4 + c] = rtMatrix.m[r][c];
-			headToWorldRowMajor3x4[r * 4 + c] = head.m[r][c];
-		}
-	}
+	lEyeMat <<
+		ltMatrix.m[0][0], ltMatrix.m[1][0], ltMatrix.m[2][0], 0.0,
+		ltMatrix.m[0][1], ltMatrix.m[1][1], ltMatrix.m[2][1], 0.0,
+		ltMatrix.m[0][2], ltMatrix.m[1][2], ltMatrix.m[2][2], 0.0,
+		ltMatrix.m[0][3], ltMatrix.m[1][3], ltMatrix.m[2][3], 1.0f;
+
+	rEyeMat <<
+		rtMatrix.m[0][0], rtMatrix.m[1][0], rtMatrix.m[2][0], 0.0,
+		rtMatrix.m[0][1], rtMatrix.m[1][1], rtMatrix.m[2][1], 0.0,
+		rtMatrix.m[0][2], rtMatrix.m[1][2], rtMatrix.m[2][2], 0.0,
+		rtMatrix.m[0][3], rtMatrix.m[1][3], rtMatrix.m[2][3], 1.0f;
+
+	headWorldMat <<
+		head.m[0][0], head.m[1][0], head.m[2][0], 0.0,
+		head.m[0][1], head.m[1][1], head.m[2][1], 0.0,
+		head.m[0][2], head.m[1][2], head.m[2][2], 0.0,
+		head.m[0][3], head.m[1][3], head.m[2][3], 1.0f;
 
 	const vr::HmdMatrix44_t& ltProj = hmd->GetProjectionMatrix(vr::Eye_Left, -nearPlaneZ, -farPlaneZ);
 	const vr::HmdMatrix44_t& rtProj = hmd->GetProjectionMatrix(vr::Eye_Right, -nearPlaneZ, -farPlaneZ);
 
-	for (int r = 0; r < 4; ++r) {
-		for (int c = 0; c < 4; ++c) {
-			ltProjectionMatrixRowMajor4x4[r * 4 + c] = ltProj.m[r][c];
-			rtProjectionMatrixRowMajor4x4[r * 4 + c] = rtProj.m[r][c];
-		}
-	}
+	lProjectionMat <<
+		ltProj.m[0][0], ltProj.m[1][0], ltProj.m[2][0], ltProj.m[3][0],
+		ltProj.m[0][1], ltProj.m[1][1], ltProj.m[2][1], ltProj.m[3][1],
+		ltProj.m[0][2], ltProj.m[1][2], ltProj.m[2][2], ltProj.m[3][2],
+		ltProj.m[0][3], ltProj.m[1][3], ltProj.m[2][3], ltProj.m[3][3];
+
+	rProjectionMat <<
+		rtProj.m[0][0], rtProj.m[1][0], rtProj.m[2][0], rtProj.m[3][0],
+		rtProj.m[0][1], rtProj.m[1][1], rtProj.m[2][1], rtProj.m[3][1],
+		rtProj.m[0][2], rtProj.m[1][2], rtProj.m[2][2], rtProj.m[3][2],
+		rtProj.m[0][3], rtProj.m[1][3], rtProj.m[2][3], rtProj.m[3][3];
 }
 
 

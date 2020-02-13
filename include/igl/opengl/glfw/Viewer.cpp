@@ -150,6 +150,21 @@ vr::IVRSystem* initOpenVR(uint32_t& hmdWidth, uint32_t& hmdHeight) {
 
 float nearPlaneZ = 0.1f;
 float farPlaneZ = 30.0f;
+Eigen::Matrix4f getCurrentViewProjectionMatrix(vr::Hmd_Eye nEye)
+{
+	Eigen::Matrix4f matMVP;
+	if (nEye == vr::Eye_Left)
+	{
+		matMVP = lProjectionMat * lEyeMat * headWorldMat;
+	}
+	else if (nEye == vr::Eye_Right)
+	{
+		matMVP = rProjectionMat * rEyeMat * headWorldMat;
+	}
+
+	return matMVP;
+}
+
 
 /**
  */
@@ -164,7 +179,7 @@ void getEyeTransformations
 	float*          ltProjectionMatrixRowMajor4x4,
 	float*          rtProjectionMatrixRowMajor4x4*/) {
 
-	assert(nearPlaneZ < 0.0f && farPlaneZ < nearPlaneZ);
+	//assert(nearPlaneZ < 0.0f && farPlaneZ < nearPlaneZ);
 
 	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
 
@@ -191,6 +206,9 @@ void getEyeTransformations
 		}
 	}
 	fprintf(stderr, "\n");
+
+	//delete this asap
+	
 //#   endif
 
 	assert(m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid);
@@ -545,9 +563,19 @@ namespace igl
 					  }
 					  else
 					  {
-					    glfwWaitEvents();
+					    //glfwWaitEvents();
+
 					    frame_counter = 0;
 					  }
+					  getEyeTransformations();
+					  //pls delete this asap
+					  core.camera_translation = Eigen::Vector3f(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][0],
+						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][1],
+						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][2]);
+
+
+
+					  //ok stop
 					if (!loop)
 						return !glfwWindowShouldClose(window);
 				}

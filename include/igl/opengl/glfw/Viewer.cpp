@@ -165,6 +165,29 @@ Eigen::Matrix4f getCurrentViewProjectionMatrix(vr::Hmd_Eye nEye)
 	return matMVP;
 }
 
+Eigen::Quaternionf GetRotation(vr::HmdMatrix34_t matrix) {
+	Eigen::Quaternionf q;
+
+	q.w = sqrt(fmax(0, 1 + matrix.m[0][0] + matrix.m[1][1] + matrix.m[2][2])) / 2;
+	q.x = sqrt(fmax(0, 1 + matrix.m[0][0] - matrix.m[1][1] - matrix.m[2][2])) / 2;
+	q.y = sqrt(fmax(0, 1 - matrix.m[0][0] + matrix.m[1][1] - matrix.m[2][2])) / 2;
+	q.z = sqrt(fmax(0, 1 - matrix.m[0][0] - matrix.m[1][1] + matrix.m[2][2])) / 2;
+	q.x = copysign(q.x, matrix.m[2][1] - matrix.m[1][2]);
+	q.y = copysign(q.y, matrix.m[0][2] - matrix.m[2][0]);
+	q.z = copysign(q.z, matrix.m[1][0] - matrix.m[0][1]);
+	return q;
+}
+
+Eigen::Vector3f GetPosition(vr::HmdMatrix34_t matrix) {
+	Eigen::Vector3f vector;
+
+	vector[0] = matrix.m[0][3];
+	vector[1] = matrix.m[1][3];
+	vector[2] = matrix.m[2][3];
+
+	return vector;
+}
+
 
 /**
  */
@@ -250,6 +273,8 @@ void getEyeTransformations
 		rtProj.m[0][2], rtProj.m[1][2], rtProj.m[2][2], rtProj.m[3][2],
 		rtProj.m[0][3], rtProj.m[1][3], rtProj.m[2][3], rtProj.m[3][3];
 }
+
+
 
 
 
@@ -569,10 +594,11 @@ namespace igl
 					  }
 					  getEyeTransformations();
 					  //pls delete this asap
-					  core.camera_translation = Eigen::Vector3f(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][0],
+					 /* core.camera_translation = Eigen::Vector3f(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][0],
 						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][1],
-						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][2]);
-
+						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][2]);*/
+					  core.camera_translation = GetPosition(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
+					  core.trackball_angle = GetRotation(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
 
 
 					  //ok stop

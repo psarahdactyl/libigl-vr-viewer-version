@@ -184,7 +184,11 @@ Eigen::Vector3f GetPosition(vr::HmdMatrix34_t matrix) {
 	vector[0] = matrix.m[0][3];
 	vector[1] = matrix.m[1][3];
 	vector[2] = matrix.m[2][3];
-
+	for (int i = 0; i < 3; i++)
+	{
+		cout << vector[i] << " ";
+	}
+	cout << endl;
 	return vector;
 }
 
@@ -598,7 +602,7 @@ namespace igl
 						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][1],
 						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][2]);*/
 					  core.camera_translation = GetPosition(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
-					  core.trackball_angle = GetRotation(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
+					  //core.trackball_angle = GetRotation(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
 
 
 					  //ok stop

@@ -55,6 +55,8 @@ static igl::opengl::glfw::Viewer * __viewer;
 static double highdpi = 1;
 static double scroll_x = 0;
 static double scroll_y = 0;
+float nearPlaneZ = 0.1f;
+float farPlaneZ = 30.0f;
 GLuint test, testA, screenTexture;
 Eigen::Matrix4f lEyeMat, rEyeMat, headWorldMat, lProjectionMat, rProjectionMat;
 
@@ -110,6 +112,7 @@ inline vr::IVRSystem *VR_Init(vr::EVRInitError *peError, vr::EVRApplicationType 
 	return pVRSystem;
 }
 
+
 /** Call immediately before initializing OpenGL
 	\param hmdWidth, hmdHeight recommended render target resolution
 */
@@ -137,6 +140,34 @@ vr::IVRSystem* initOpenVR(uint32_t& hmdWidth, uint32_t& hmdHeight) {
 
 	fprintf(stderr, "HMD: %s '%s' #%s (%d x %d @ %g Hz)\n", driver.c_str(), model.c_str(), serial.c_str(), hmdWidth, hmdHeight, freq);
 
+	const vr::HmdMatrix34_t& ltMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Left);
+	const vr::HmdMatrix34_t& rtMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Right);
+
+	lEyeMat <<
+		ltMatrix.m[0][0], ltMatrix.m[1][0], ltMatrix.m[2][0], 0.0,
+		ltMatrix.m[0][1], ltMatrix.m[1][1], ltMatrix.m[2][1], 0.0,
+		ltMatrix.m[0][2], ltMatrix.m[1][2], ltMatrix.m[2][2], 0.0,
+		ltMatrix.m[0][3], ltMatrix.m[1][3], ltMatrix.m[2][3], 1.0f;
+
+	rEyeMat <<
+		rtMatrix.m[0][0], rtMatrix.m[1][0], rtMatrix.m[2][0], 0.0,
+		rtMatrix.m[0][1], rtMatrix.m[1][1], rtMatrix.m[2][1], 0.0,
+		rtMatrix.m[0][2], rtMatrix.m[1][2], rtMatrix.m[2][2], 0.0,
+		rtMatrix.m[0][3], rtMatrix.m[1][3], rtMatrix.m[2][3], 1.0f;
+	const vr::HmdMatrix44_t& ltProj = hmd->GetProjectionMatrix(vr::Eye_Left, -nearPlaneZ, -farPlaneZ);
+	const vr::HmdMatrix44_t& rtProj = hmd->GetProjectionMatrix(vr::Eye_Right, -nearPlaneZ, -farPlaneZ);
+
+	lProjectionMat <<
+		ltProj.m[0][0], ltProj.m[1][0], ltProj.m[2][0], ltProj.m[3][0],
+		ltProj.m[0][1], ltProj.m[1][1], ltProj.m[2][1], ltProj.m[3][1],
+		ltProj.m[0][2], ltProj.m[1][2], ltProj.m[2][2], ltProj.m[3][2],
+		ltProj.m[0][3], ltProj.m[1][3], ltProj.m[2][3], ltProj.m[3][3];
+
+	rProjectionMat <<
+		rtProj.m[0][0], rtProj.m[1][0], rtProj.m[2][0], rtProj.m[3][0],
+		rtProj.m[0][1], rtProj.m[1][1], rtProj.m[2][1], rtProj.m[3][1],
+		rtProj.m[0][2], rtProj.m[1][2], rtProj.m[2][2], rtProj.m[3][2],
+		rtProj.m[0][3], rtProj.m[1][3], rtProj.m[2][3], rtProj.m[3][3];
 	// Initialize the compositor
 	vr::IVRCompositor* compositor = vr::VRCompositor();
 	if (!compositor) {
@@ -148,8 +179,7 @@ vr::IVRSystem* initOpenVR(uint32_t& hmdWidth, uint32_t& hmdHeight) {
 	return hmd;
 }
 
-float nearPlaneZ = 0.1f;
-float farPlaneZ = 30.0f;
+
 Eigen::Matrix4f getCurrentViewProjectionMatrix(vr::Hmd_Eye nEye)
 {
 	Eigen::Matrix4f matMVP;
@@ -172,18 +202,18 @@ Eigen::Quaternionf GetRotation(vr::HmdMatrix34_t matrix) {
 	q.x() = sqrt(fmax(0, 1 + matrix.m[0][0] - matrix.m[1][1] - matrix.m[2][2])) / 2;
 	q.y() = sqrt(fmax(0, 1 - matrix.m[0][0] + matrix.m[1][1] - matrix.m[2][2])) / 2;
 	q.z() = sqrt(fmax(0, 1 - matrix.m[0][0] - matrix.m[1][1] + matrix.m[2][2])) / 2;
-	q.x() = -1 * copysign(q.x(), matrix.m[2][1] - matrix.m[1][2]);
-	q.y() = -1 * copysign(q.y(), matrix.m[0][2] - matrix.m[2][0]);
-	q.z() = -1 *  copysign(q.z(), matrix.m[1][0] - matrix.m[0][1]);
+	q.x() =  copysign(q.x(), matrix.m[2][1] - matrix.m[1][2]);
+	q.y() =  copysign(q.y(), matrix.m[0][2] - matrix.m[2][0]);
+	q.z() =   copysign(q.z(), matrix.m[1][0] - matrix.m[0][1]);
 	return q;
 }
 
 Eigen::Vector3f GetPosition(vr::HmdMatrix34_t matrix) {
 	Eigen::Vector3f vector;
 
-	vector[0] = matrix.m[0][3];
-	vector[1] = matrix.m[1][3];
-	vector[2] = matrix.m[2][3];
+	vector[0] = matrix.m[0][3]/ matrix.m[3][3];
+	vector[2] = matrix.m[1][3]/matrix.m[3][3];
+	vector[1] = matrix.m[2][3]/matrix.m[3][3];
 
 	return vector;
 }
@@ -237,20 +267,6 @@ void getEyeTransformations
 	assert(m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid);
 	const vr::HmdMatrix34_t head = m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
 
-	const vr::HmdMatrix34_t& ltMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Left);
-	const vr::HmdMatrix34_t& rtMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Right);
-
-	lEyeMat <<
-		ltMatrix.m[0][0], ltMatrix.m[1][0], ltMatrix.m[2][0], 0.0,
-		ltMatrix.m[0][1], ltMatrix.m[1][1], ltMatrix.m[2][1], 0.0,
-		ltMatrix.m[0][2], ltMatrix.m[1][2], ltMatrix.m[2][2], 0.0,
-		ltMatrix.m[0][3], ltMatrix.m[1][3], ltMatrix.m[2][3], 1.0f;
-
-	rEyeMat <<
-		rtMatrix.m[0][0], rtMatrix.m[1][0], rtMatrix.m[2][0], 0.0,
-		rtMatrix.m[0][1], rtMatrix.m[1][1], rtMatrix.m[2][1], 0.0,
-		rtMatrix.m[0][2], rtMatrix.m[1][2], rtMatrix.m[2][2], 0.0,
-		rtMatrix.m[0][3], rtMatrix.m[1][3], rtMatrix.m[2][3], 1.0f;
 
 	headWorldMat <<
 		head.m[0][0], head.m[1][0], head.m[2][0], 0.0,
@@ -258,20 +274,8 @@ void getEyeTransformations
 		head.m[0][2], head.m[1][2], head.m[2][2], 0.0,
 		head.m[0][3], head.m[1][3], head.m[2][3], 1.0f;
 
-	const vr::HmdMatrix44_t& ltProj = hmd->GetProjectionMatrix(vr::Eye_Left, -nearPlaneZ, -farPlaneZ);
-	const vr::HmdMatrix44_t& rtProj = hmd->GetProjectionMatrix(vr::Eye_Right, -nearPlaneZ, -farPlaneZ);
 
-	lProjectionMat <<
-		ltProj.m[0][0], ltProj.m[1][0], ltProj.m[2][0], ltProj.m[3][0],
-		ltProj.m[0][1], ltProj.m[1][1], ltProj.m[2][1], ltProj.m[3][1],
-		ltProj.m[0][2], ltProj.m[1][2], ltProj.m[2][2], ltProj.m[3][2],
-		ltProj.m[0][3], ltProj.m[1][3], ltProj.m[2][3], ltProj.m[3][3];
 
-	rProjectionMat <<
-		rtProj.m[0][0], rtProj.m[1][0], rtProj.m[2][0], rtProj.m[3][0],
-		rtProj.m[0][1], rtProj.m[1][1], rtProj.m[2][1], rtProj.m[3][1],
-		rtProj.m[0][2], rtProj.m[1][2], rtProj.m[2][2], rtProj.m[3][2],
-		rtProj.m[0][3], rtProj.m[1][3], rtProj.m[2][3], rtProj.m[3][3];
 }
 
 
@@ -597,8 +601,8 @@ namespace igl
 					 /* core.camera_translation = Eigen::Vector3f(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][0],
 						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][1],
 						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][2]);*/
-					  core.camera_translation = GetPosition(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
-					  core.trackball_angle = GetRotation(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
+					//core.camera_translation = GetPosition(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
+			core.trackball_angle = GetRotation(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
 
 
 					  //ok stop

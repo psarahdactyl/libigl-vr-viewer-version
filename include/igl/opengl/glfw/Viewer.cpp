@@ -202,18 +202,23 @@ Eigen::Quaternionf GetRotation(vr::HmdMatrix34_t matrix) {
 	q.x() = sqrt(fmax(0, 1 + matrix.m[0][0] - matrix.m[1][1] - matrix.m[2][2])) / 2;
 	q.y() = sqrt(fmax(0, 1 - matrix.m[0][0] + matrix.m[1][1] - matrix.m[2][2])) / 2;
 	q.z() = sqrt(fmax(0, 1 - matrix.m[0][0] - matrix.m[1][1] + matrix.m[2][2])) / 2;
-	q.x() =  copysign(q.x(), matrix.m[2][1] - matrix.m[1][2]);
-	q.y() =  copysign(q.y(), matrix.m[0][2] - matrix.m[2][0]);
-	q.z() =   copysign(q.z(), matrix.m[1][0] - matrix.m[0][1]);
+	q.x() =  -1*copysign(q.x(), matrix.m[2][1] - matrix.m[1][2]);
+	q.y() = -1 * copysign(q.y(), matrix.m[0][2] - matrix.m[2][0]);
+	q.z() = -1 * copysign(q.z(), matrix.m[1][0] - matrix.m[0][1]);
 	return q;
 }
 
 Eigen::Vector3f GetPosition(vr::HmdMatrix34_t matrix) {
 	Eigen::Vector3f vector;
+	vector[0] = matrix.m[0][3] * -0.4;
+	vector[1] = (matrix.m[1][3] - 1.6) * -0.4;
+	vector[2] = matrix.m[2][3]*-0.4;
+	printf("%.3f, ", vector[0]);
+	printf("%.3f, ", vector[1]);
+	printf("%.3f\n", vector[2]);
+		//printf("%.3f, ", matrix.m[3][3]);
 
-	vector[0] = matrix.m[0][3]/ matrix.m[3][3];
-	vector[2] = matrix.m[1][3]/matrix.m[3][3];
-	vector[1] = matrix.m[2][3]/matrix.m[3][3];
+
 
 	return vector;
 }
@@ -237,9 +242,9 @@ void getEyeTransformations
 	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
 
 //#   if defined(_DEBUG) && 0
-	fprintf(stderr, "Devices tracked this frame: \n");
+	//fprintf(stderr, "Devices tracked this frame: \n");
 	int poseCount = 0;
-	for (int d = 0; d < vr::k_unMaxTrackedDeviceCount; ++d) {
+	/*for (int d = 0; d < vr::k_unMaxTrackedDeviceCount; ++d) {
 		if (m_rTrackedDevicePose[d].bPoseIsValid) {
 			++poseCount;
 			switch (hmd->GetTrackedDeviceClass(d)) {
@@ -258,7 +263,7 @@ void getEyeTransformations
 			fprintf(stderr, "]\n");
 		}
 	}
-	fprintf(stderr, "\n");
+	fprintf(stderr, "\n");*/
 
 	//delete this asap
 	
@@ -601,8 +606,8 @@ namespace igl
 					 /* core.camera_translation = Eigen::Vector3f(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][0],
 						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][1],
 						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][2]);*/
-					//core.camera_translation = GetPosition(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
-			core.trackball_angle = GetRotation(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
+					core.camera_translation = GetPosition(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
+					core.trackball_angle = GetRotation(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
 
 
 					  //ok stop

@@ -398,7 +398,7 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore()
   camera_dfar = 100.0;
   camera_base_translation << 0, 0, 0;
   camera_translation << 0, 0, 0;
-  camera_eye << 0, 0, 5;
+  camera_eye << 0, 0, 0.01;
   camera_center << 0, 0, 0;
   camera_up << 0, 1, 0;
 

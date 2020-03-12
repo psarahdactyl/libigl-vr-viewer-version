@@ -57,7 +57,7 @@ static double scroll_x = 0;
 static double scroll_y = 0;
 float nearPlaneZ = 0.1f;
 float farPlaneZ = 30.0f;
-GLuint test, testA, screenTexture;
+GLuint test, testA, screenTexture, lTexture, rTexture;
 Eigen::Matrix4f lEyeMat, rEyeMat, headWorldMat, lProjectionMat, rProjectionMat;
 
 vr::IVRSystem* hmd = nullptr;
@@ -295,13 +295,13 @@ void submitToHMD(GLint ltEyeTexture, GLint rtEyeTexture, bool isGammaEncoded) {
 
 	//vr::Texture_t lt = { (void*)(uintptr_t)ltEyeTexture, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 
-	vr::Texture_t lt = { reinterpret_cast<void*>(intptr_t(screenTexture)), vr::TextureType_OpenGL, colorSpace };
+	vr::Texture_t lt = { reinterpret_cast<void*>(intptr_t(lTexture)), vr::TextureType_OpenGL, colorSpace };
 	vr::VRCompositor()->Submit(vr::Eye_Left, &lt);
 
 	//vr::Texture_t rt = { (void*)(uintptr_t)rtEyeTexture, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 
 
-	vr::Texture_t rt = { reinterpret_cast<void*>(intptr_t(screenTexture)), vr::TextureType_OpenGL, colorSpace };
+	vr::Texture_t rt = { reinterpret_cast<void*>(intptr_t(rTexture)), vr::TextureType_OpenGL, colorSpace };
 	vr::VRCompositor()->Submit(vr::Eye_Right, &rt);
 
 	// Tell the compositor to begin work immediately instead of waiting for the next WaitGetPoses() call
@@ -515,11 +515,18 @@ namespace igl
 
 				unsigned int textureColorBufferMultiSampled;
 				glGenTextures(1, &textureColorBufferMultiSampled);
-				unsigned int rbo;
-				glGenRenderbuffers(1, &rbo);
+				unsigned int lrbo;
+				glGenRenderbuffers(1, &lrbo);
+				unsigned int rrbo;
+				glGenRenderbuffers(1, &rrbo);
 				unsigned int intermediateFBO;
 				glGenFramebuffers(1, &intermediateFBO);
+				unsigned int intermediateFBO2;
+				glGenFramebuffers(1, &intermediateFBO2);
 				glGenTextures(1, &screenTexture);
+				glGenTextures(1, &lTexture);
+				glGenTextures(1, &rTexture);
+
 
 				while (!glfwWindowShouldClose(window))
 				{
@@ -534,25 +541,25 @@ namespace igl
 					  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA, m_nRenderWidth, m_nRenderHeight, GL_TRUE);
 					  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);
-					  // create a (also multisampled) renderbuffer object for depth and stencil attachments
+					  //// create a (also multisampled) renderbuffer object for depth and stencil attachments
 					  
-					  glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+					  glBindRenderbuffer(GL_RENDERBUFFER, lrbo);
 					  glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, m_nRenderWidth, m_nRenderHeight);
 					  glBindRenderbuffer(GL_RENDERBUFFER, 0);
-					  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+					  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, lrbo);
 					  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 					  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+				
 					  // configure second post-processing framebuffer
 					  
 					  glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
 					  // create a color attachment texture
 
-					  glBindTexture(GL_TEXTURE_2D, screenTexture);
+					  glBindTexture(GL_TEXTURE_2D, lTexture);
 					  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_nRenderWidth, m_nRenderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 					  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 					  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, screenTexture, 0);	// we only need a color buffer
+					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lTexture, 0);	// we only need a color buffer
 					  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 					  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -567,6 +574,44 @@ namespace igl
 					  draw_for_vr();
 					  // Restore viewport
 					  //viewport = viewport_ori;
+					  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+					  // create a multisampled color attachment texture
+
+					  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
+					  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA, m_nRenderWidth, m_nRenderHeight, GL_TRUE);
+					  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);
+					  //// create a (also multisampled) renderbuffer object for depth and stencil attachments
+
+					  glBindRenderbuffer(GL_RENDERBUFFER, rrbo);
+					  glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, m_nRenderWidth, m_nRenderHeight);
+					  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+					  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rrbo);
+					  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+					  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+					  // configure second post-processing framebuffer
+
+					  glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO2);
+					  // create a color attachment texture
+
+					  glBindTexture(GL_TEXTURE_2D, rTexture);
+					  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_nRenderWidth, m_nRenderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+					  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rTexture, 0);	// we only need a color buffer
+					  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+					  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+					  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+					  core.viewport << 0, 0, m_nRenderWidth, m_nRenderHeight;
+					  // Clear the buffer
+					  glClearColor(0.3, 0.3, 0.5, 0.f);
+					  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+					  //// Save old viewport
+					  //Eigen::Vector4f viewport_ori = viewport;
+					  // Draw
+					  draw_for_vr();
 
 					  glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
 					  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
@@ -579,9 +624,19 @@ namespace igl
 					
 					submitToHMD(test, test, true);
 					//submitToHMD(data_list[0].meshgl.vbo_tex, data_list[0].meshgl.vbo_tex, true);
+					glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO2);
+					glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+
+					glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
+
+					//test = core.draw_buffer(data_list[0], m_nRenderWidth, m_nRenderHeight);
+
+
+					submitToHMD(test, test, true);
 					
 
-					draw();
+					/*draw();*/
 					glfwSwapBuffers(window);
 
 					  if(core.is_animating || frame_counter++ < num_extra_frames)
@@ -619,10 +674,15 @@ namespace igl
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
 				glBindFramebuffer(GL_FRAMEBUFFER, 0);
 				glDeleteTextures(1, &screenTexture);
+				glDeleteTextures(1, &lTexture);
+				glDeleteTextures(1, &rTexture);
+
 				glDeleteTextures(1, &textureColorBufferMultiSampled);
 				glDeleteFramebuffers(1, &framebuffer);
 				glDeleteFramebuffers(1, &intermediateFBO);
-				glDeleteRenderbuffers(1, &rbo);
+				glDeleteFramebuffers(1, &intermediateFBO2);
+				glDeleteRenderbuffers(1, &lrbo);
+				glDeleteRenderbuffers(1, &rrbo);
 				//MARKER
 				return EXIT_SUCCESS;
 			}

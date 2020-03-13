@@ -51,14 +51,14 @@
 #include <openvr.h>
 
 // Internal global variables used for glfw event handling
-static igl::opengl::glfw::Viewer * __viewer;
+static igl::opengl::glfw::Viewer* __viewer;
 static double highdpi = 1;
 static double scroll_x = 0;
 static double scroll_y = 0;
 float nearPlaneZ = 0.1f;
 float farPlaneZ = 30.0f;
 GLuint test, testA, screenTexture, lTexture, rTexture;
-Eigen::Matrix4f lEyeMat, rEyeMat, headWorldMat, lProjectionMat, rProjectionMat;
+Eigen::Matrix4f lEyeMat, rEyeMat, headWorldMat, lProjectionMat, rProjectionMat, leftEyeMat, rightEyeMat;
 
 vr::IVRSystem* hmd = nullptr;
 vr::TrackedDevicePose_t m_rTrackedDevicePose[vr::k_unMaxTrackedDeviceCount];
@@ -84,14 +84,14 @@ void handleVRError(vr::EVRInitError err)
 	throw std::runtime_error(vr::VR_GetVRInitErrorAsEnglishDescription(err));
 }
 
-inline vr::IVRSystem *VR_Init(vr::EVRInitError *peError, vr::EVRApplicationType eApplicationType, const char *pStartupInfo)
+inline vr::IVRSystem* VR_Init(vr::EVRInitError* peError, vr::EVRApplicationType eApplicationType, const char* pStartupInfo)
 {
 	using namespace vr;
-	vr::IVRSystem *pVRSystem = nullptr;
+	vr::IVRSystem* pVRSystem = nullptr;
 
 	vr::EVRInitError eError;
 	VRToken() = vr::VR_InitInternal2(&eError, eApplicationType, pStartupInfo);
-	COpenVRContext &ctx = OpenVRInternal_ModuleContext();
+	COpenVRContext& ctx = OpenVRInternal_ModuleContext();
 	ctx.Clear();
 
 	if (eError == VRInitError_None)
@@ -202,21 +202,49 @@ Eigen::Quaternionf GetRotation(vr::HmdMatrix34_t matrix) {
 	q.x() = sqrt(fmax(0, 1 + matrix.m[0][0] - matrix.m[1][1] - matrix.m[2][2])) / 2;
 	q.y() = sqrt(fmax(0, 1 - matrix.m[0][0] + matrix.m[1][1] - matrix.m[2][2])) / 2;
 	q.z() = sqrt(fmax(0, 1 - matrix.m[0][0] - matrix.m[1][1] + matrix.m[2][2])) / 2;
-	q.x() =  -1*copysign(q.x(), matrix.m[2][1] - matrix.m[1][2]);
+	q.x() = -1 * copysign(q.x(), matrix.m[2][1] - matrix.m[1][2]);
 	q.y() = -1 * copysign(q.y(), matrix.m[0][2] - matrix.m[2][0]);
 	q.z() = -1 * copysign(q.z(), matrix.m[1][0] - matrix.m[0][1]);
 	return q;
 }
 
+Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f matrix) {
+	Eigen::Quaternionf q;
+
+	q.w() = sqrt(fmax(0, 1 + matrix(0,0) + matrix(1, 1) + matrix(2, 2))) / 2;
+	q.x() = sqrt(fmax(0, 1 + matrix(0,0) - matrix(1, 1) - matrix(2, 2))) / 2;
+	q.y() = sqrt(fmax(0, 1 - matrix(0, 0) + matrix(1, 1) - matrix(2, 2))) / 2;
+	q.z() = sqrt(fmax(0, 1 - matrix(0, 0) - matrix(1, 1) + matrix(2, 2))) / 2;
+	q.x() = -1 * copysign(q.x(), matrix(2, 1) - matrix(1, 2));
+	q.y() = -1 * copysign(q.y(), matrix(0, 2) - matrix(2, 0));
+	q.z() = -1 * copysign(q.z(), matrix(1, 0) - matrix(0, 1));
+	return q;
+}
+
+
 Eigen::Vector3f GetPosition(vr::HmdMatrix34_t matrix) {
 	Eigen::Vector3f vector;
 	vector[0] = matrix.m[0][3] * -0.4;
 	vector[1] = (matrix.m[1][3] - 1.6) * -0.4;
-	vector[2] = matrix.m[2][3]*-0.4;
+	vector[2] = matrix.m[2][3] * -0.4;
 	printf("%.3f, ", vector[0]);
 	printf("%.3f, ", vector[1]);
 	printf("%.3f\n", vector[2]);
-		//printf("%.3f, ", matrix.m[3][3]);
+	//printf("%.3f, ", matrix.m[3][3]);
+
+	return vector;
+}
+
+
+Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f matrix) {
+	Eigen::Vector3f vector;
+	vector[0] = matrix(0, 3) * -0.4;
+	vector[1] = (matrix(1, 3) - 1.6) * -0.4;
+	vector[2] = matrix(2, 3) * -0.4;
+	printf("%.3f, ", vector[0]);
+	printf("%.3f, ", vector[1]);
+	printf("%.3f\n", vector[2]);
+	//printf("%.3f, ", matrix.m[3][3]);
 
 	return vector;
 }
@@ -239,8 +267,8 @@ void getEyeTransformations
 
 	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
 
-//#   if defined(_DEBUG) && 0
-	//fprintf(stderr, "Devices tracked this frame: \n");
+	//#   if defined(_DEBUG) && 0
+		//fprintf(stderr, "Devices tracked this frame: \n");
 	int poseCount = 0;
 	/*for (int d = 0; d < vr::k_unMaxTrackedDeviceCount; ++d) {
 		if (m_rTrackedDevicePose[d].bPoseIsValid) {
@@ -264,11 +292,26 @@ void getEyeTransformations
 	fprintf(stderr, "\n");*/
 
 	//delete this asap
-	
+
 //#   endif
 
 	assert(m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid);
 	const vr::HmdMatrix34_t head = m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
+	const vr::HmdMatrix34_t& leftEyeFromHead = hmd->GetEyeToHeadTransform(vr::Eye_Left);
+	const vr::HmdMatrix34_t& rightEyeFromHead = hmd->GetEyeToHeadTransform(vr::Eye_Right);
+	Eigen::Matrix4f lTemp, rTemp;
+	lTemp <<
+		leftEyeFromHead.m[0][0], leftEyeFromHead.m[1][0], leftEyeFromHead.m[2][0], 0.0,
+		leftEyeFromHead.m[0][1], leftEyeFromHead.m[1][1], leftEyeFromHead.m[2][1], 0.0,
+		leftEyeFromHead.m[0][2], leftEyeFromHead.m[1][2], leftEyeFromHead.m[2][2], 0.0,
+		leftEyeFromHead.m[0][3], leftEyeFromHead.m[1][3], leftEyeFromHead.m[2][3], 1.0f;
+
+	rTemp <<
+		rightEyeFromHead.m[0][0], rightEyeFromHead.m[1][0], rightEyeFromHead.m[2][0], 0.0,
+		rightEyeFromHead.m[0][1], rightEyeFromHead.m[1][1], rightEyeFromHead.m[2][1], 0.0,
+		rightEyeFromHead.m[0][2], rightEyeFromHead.m[1][2], rightEyeFromHead.m[2][2], 0.0,
+		rightEyeFromHead.m[0][3], rightEyeFromHead.m[1][3], rightEyeFromHead.m[2][3], 1.0f;
+
 
 
 	headWorldMat <<
@@ -276,6 +319,9 @@ void getEyeTransformations
 		head.m[0][1], head.m[1][1], head.m[2][1], 0.0,
 		head.m[0][2], head.m[1][2], head.m[2][2], 0.0,
 		head.m[0][3], head.m[1][3], head.m[2][3], 1.0f;
+
+	leftEyeMat = headWorldMat * lTemp;
+	rightEyeMat = headWorldMat * rTemp;
 
 
 
@@ -361,7 +407,7 @@ static void glfw_window_size(GLFWwindow* window, int width, int height)
 
 static void glfw_mouse_move(GLFWwindow* window, double x, double y)
 {
-	__viewer->mouse_move(x*highdpi, y*highdpi);
+	__viewer->mouse_move(x * highdpi, y * highdpi);
 }
 
 static void glfw_mouse_scroll(GLFWwindow* window, double x, double y)
@@ -373,7 +419,7 @@ static void glfw_mouse_scroll(GLFWwindow* window, double x, double y)
 	__viewer->mouse_scroll(y);
 }
 
-static void glfw_drop_callback(GLFWwindow *window, int count, const char **filenames)
+static void glfw_drop_callback(GLFWwindow* window, int count, const char** filenames)
 {
 }
 
@@ -418,8 +464,8 @@ namespace igl
 #endif
 				if (fullscreen)
 				{
-					GLFWmonitor *monitor = glfwGetPrimaryMonitor();
-					const GLFWvidmode *mode = glfwGetVideoMode(monitor);
+					GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+					const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 					window = glfwCreateWindow(mode->width, mode->height, "libigl viewer", monitor, nullptr);
 				}
 				else
@@ -528,94 +574,100 @@ namespace igl
 
 				while (!glfwWindowShouldClose(window))
 				{
-					  double tic = get_seconds();
+					double tic = get_seconds();
 
-					  //MARKER
-					  
-					  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-					  // create a multisampled color attachment texture
-					  
-					  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
-					  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA, m_nRenderWidth, m_nRenderHeight, GL_TRUE);
-					  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);
-					  //// create a (also multisampled) renderbuffer object for depth and stencil attachments
-					  
-					  glBindRenderbuffer(GL_RENDERBUFFER, lrbo);
-					  glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, m_nRenderWidth, m_nRenderHeight);
-					  glBindRenderbuffer(GL_RENDERBUFFER, 0);
-					  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, lrbo);
-					  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-					  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-				
-					  // configure second post-processing framebuffer
-					  
-					  glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
-					  // create a color attachment texture
+					//MARKER
 
-					  glBindTexture(GL_TEXTURE_2D, lTexture);
-					  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_nRenderWidth, m_nRenderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-					  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-					  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lTexture, 0);	// we only need a color buffer
-					  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-					  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+					glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+					// create a multisampled color attachment texture
 
-					  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-					  core.viewport << 0, 0, m_nRenderWidth, m_nRenderHeight;
-					 // Clear the buffer
-					  glClearColor(0.3, 0.3, 0.5, 0.f);
-					  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-					  //// Save old viewport
-					  //Eigen::Vector4f viewport_ori = viewport;
-					  // Draw
-					  draw_for_vr();
-					  // Restore viewport
-					  //viewport = viewport_ori;
-					  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-					  // create a multisampled color attachment texture
+					glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
+					glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA, m_nRenderWidth, m_nRenderHeight, GL_TRUE);
+					glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);
+					//// create a (also multisampled) renderbuffer object for depth and stencil attachments
 
-					  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
-					  glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA, m_nRenderWidth, m_nRenderHeight, GL_TRUE);
-					  glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
-					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);
-					  //// create a (also multisampled) renderbuffer object for depth and stencil attachments
+					glBindRenderbuffer(GL_RENDERBUFFER, lrbo);
+					glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, m_nRenderWidth, m_nRenderHeight);
+					glBindRenderbuffer(GL_RENDERBUFFER, 0);
+					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, lrbo);
+					assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-					  glBindRenderbuffer(GL_RENDERBUFFER, rrbo);
-					  glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, m_nRenderWidth, m_nRenderHeight);
-					  glBindRenderbuffer(GL_RENDERBUFFER, 0);
-					  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rrbo);
-					  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-					  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+					// configure second post-processing framebuffer
 
-					  // configure second post-processing framebuffer
+					glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
+					// create a color attachment texture
 
-					  glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO2);
-					  // create a color attachment texture
+					glBindTexture(GL_TEXTURE_2D, lTexture);
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_nRenderWidth, m_nRenderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lTexture, 0);	// we only need a color buffer
+					assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-					  glBindTexture(GL_TEXTURE_2D, rTexture);
-					  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_nRenderWidth, m_nRenderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-					  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-					  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-					  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rTexture, 0);	// we only need a color buffer
-					  assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
-					  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+					glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+					core.viewport << 0, 0, m_nRenderWidth, m_nRenderHeight;
+					// Clear the buffer
+					glClearColor(0.3, 0.3, 0.5, 0.f);
+					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+					//// Save old viewport
+					//Eigen::Vector4f viewport_ori = viewport;
+					// Draw
+					draw_for_vr();
+					// Restore viewport
+					//viewport = viewport_ori;
+					glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+					// create a multisampled color attachment texture
 
-					  glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-					  core.viewport << 0, 0, m_nRenderWidth, m_nRenderHeight;
-					  // Clear the buffer
-					  glClearColor(0.3, 0.3, 0.5, 0.f);
-					  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-					  //// Save old viewport
-					  //Eigen::Vector4f viewport_ori = viewport;
-					  // Draw
-					  draw_for_vr();
-					  //apparently this matters, if it's commented out buffer would be blank
-					  glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
-					  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
-					  glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-					  glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
-					  submitToHMD();
+					glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled);
+					glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA, m_nRenderWidth, m_nRenderHeight, GL_TRUE);
+					glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, textureColorBufferMultiSampled, 0);
+					//// create a (also multisampled) renderbuffer object for depth and stencil attachments
+
+					glBindRenderbuffer(GL_RENDERBUFFER, rrbo);
+					glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, m_nRenderWidth, m_nRenderHeight);
+					glBindRenderbuffer(GL_RENDERBUFFER, 0);
+					glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rrbo);
+					assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+					// configure second post-processing framebuffer
+
+					glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO2);
+					// create a color attachment texture
+
+					glBindTexture(GL_TEXTURE_2D, rTexture);
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_nRenderWidth, m_nRenderHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rTexture, 0);	// we only need a color buffer
+					assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+					glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+					glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+					core.viewport << 0, 0, m_nRenderWidth, m_nRenderHeight;
+					// Clear the buffer
+					glClearColor(0.3, 0.3, 0.5, 0.f);
+					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+					//// Save old viewport
+					//Eigen::Vector4f viewport_ori = viewport;
+					// Draw
+					getEyeTransformations();
+					core.camera_translation = EigenGetPosition(rightEyeMat);
+					core.trackball_angle = EigenGetRotation(rightEyeMat);
+
+					draw_for_vr();
+
+
+					//apparently this matters, if it's commented out buffer would be blank
+					glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
+					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
+					glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+					glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
+					submitToHMD();
 
 
 					//submit again for the right eye and it just magically works otherwise it only shows left eye
@@ -625,38 +677,38 @@ namespace igl
 
 					glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO2);
 					submitToHMD();
-					
 
+					//companion window still not working
 					draw();
 					glfwSwapBuffers(window);
 
-					  if(core.is_animating || frame_counter++ < num_extra_frames)
-					  {
-					    glfwPollEvents();
-					    // In microseconds
-					    double duration = 1000000.*(get_seconds()-tic);
-					    const double min_duration = 1000000./core.animation_max_fps;
-					    if(duration<min_duration)
-					    {
-					      std::this_thread::sleep_for(std::chrono::microseconds((int)(min_duration-duration)));
-					    }
-					  }
-					  else
-					  {
-					    //glfwWaitEvents();
+					if (core.is_animating || frame_counter++ < num_extra_frames)
+					{
+						glfwPollEvents();
+						// In microseconds
+						double duration = 1000000. * (get_seconds() - tic);
+						const double min_duration = 1000000. / core.animation_max_fps;
+						if (duration < min_duration)
+						{
+							std::this_thread::sleep_for(std::chrono::microseconds((int)(min_duration - duration)));
+						}
+					}
+					else
+					{
+						//glfwWaitEvents();
 
-					    frame_counter = 0;
-					  }
-					  getEyeTransformations();
-					  //pls delete this asap
-					 /* core.camera_translation = Eigen::Vector3f(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][0],
-						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][1],
-						  m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][2]);*/
-					core.camera_translation = GetPosition(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
-					core.trackball_angle = GetRotation(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking);
+						frame_counter = 0;
+					}
+					getEyeTransformations();
+					//pls delete this asap
+				   /* core.camera_translation = Eigen::Vector3f(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][0],
+						m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][1],
+						m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][2]);*/
+					core.camera_translation = EigenGetPosition(leftEyeMat);
+					core.trackball_angle = EigenGetRotation(leftEyeMat);
 
 
-					  //ok stop
+					//ok stop
 					if (!loop)
 						return !glfwWindowShouldClose(window);
 				}
@@ -723,7 +775,7 @@ namespace igl
 
 			IGL_INLINE void Viewer::launch_shut()
 			{
-				for (auto & data : data_list)
+				for (auto& data : data_list)
 				{
 					data.meshgl.free();
 				}
@@ -824,7 +876,7 @@ namespace igl
 			}
 
 			IGL_INLINE bool Viewer::load_mesh_from_file(
-				const std::string & mesh_file_name_string)
+				const std::string& mesh_file_name_string)
 			{
 
 				// first try to load it with a plugin
@@ -911,7 +963,7 @@ namespace igl
 			}
 
 			IGL_INLINE bool Viewer::save_mesh_to_file(
-				const std::string & mesh_file_name_string)
+				const std::string& mesh_file_name_string)
 			{
 				// first try to load it with a plugin
 				for (unsigned int i = 0; i < plugins.size(); ++i)
@@ -1246,7 +1298,7 @@ namespace igl
 				// Only zoom if there's actually a change
 				if (delta_y != 0)
 				{
-					float mult = (1.0 + ((delta_y > 0) ? 1. : -1.)*0.05);
+					float mult = (1.0 + ((delta_y > 0) ? 1. : -1.) * 0.05);
 					const float min_zoom = 0.1f;
 					core.camera_zoom = (core.camera_zoom * mult > min_zoom ? core.camera_zoom * mult : min_zoom);
 				}

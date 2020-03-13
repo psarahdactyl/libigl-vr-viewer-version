@@ -286,10 +286,10 @@ void getEyeTransformations
 
 
 /** Call immediately before OpenGL swap buffers */
-void submitToHMD(GLint ltEyeTexture, GLint rtEyeTexture, bool isGammaEncoded) {
+void submitToHMD() {
 	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
 
-	vr::EColorSpace colorSpace = isGammaEncoded ? vr::ColorSpace_Gamma : vr::ColorSpace_Linear;
+	vr::EColorSpace colorSpace = vr::ColorSpace_Gamma;
 
 	//vr::Texture_t lt = { (void*)(uintptr_t)ltEyeTexture, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 
@@ -610,31 +610,24 @@ namespace igl
 					  //Eigen::Vector4f viewport_ori = viewport;
 					  // Draw
 					  draw_for_vr();
-
+					  //apparently this matters, if it's commented out buffer would be blank
 					  glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
 					  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
 					  glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
 					  glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
+					  submitToHMD();
 
-					//test = core.draw_buffer(data_list[0], m_nRenderWidth, m_nRenderHeight);
 
-					
-					submitToHMD(test, test, true);
-					//submitToHMD(data_list[0].meshgl.vbo_tex, data_list[0].meshgl.vbo_tex, true);
+					//submit again for the right eye and it just magically works otherwise it only shows left eye
 					glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
 					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO2);
 					glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
-					glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
-
-					//test = core.draw_buffer(data_list[0], m_nRenderWidth, m_nRenderHeight);
-
-
-					submitToHMD(test, test, true);
+					glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO2);
+					submitToHMD();
 					
 
-					/*draw();*/
+					draw();
 					glfwSwapBuffers(window);
 
 					  if(core.is_animating || frame_counter++ < num_extra_frames)

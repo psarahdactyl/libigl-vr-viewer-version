@@ -240,9 +240,9 @@ Eigen::Vector3f GetPosition(vr::HmdMatrix34_t matrix) {
 
 Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f matrix) {
 	Eigen::Vector3f vector;
-	vector[0] = matrix(3, 0) * -1;
-	vector[1] = (matrix(3, 1) - 1.2) * -1;
-	vector[2] = matrix(3, 2) * -1;
+	vector[0] = matrix(3, 0) * -0.6;
+	vector[1] = (matrix(3, 1) - 1.2) * -0.6;
+	vector[2] = matrix(3, 2) * -0.6;
 	//printf("%.3f, %.3f, %.3f\n", vector[0], vector[1], vector[2]);
 	//printf("%.3f, ", matrix.m[3][3]);
 
@@ -676,11 +676,10 @@ namespace igl
 					//Eigen::Vector4f viewport_ori = viewport;
 					// Draw
 					getEyeTransformations();
-					core.camera_translation = EigenGetPosition(rightEyeMat);
-					core.trackball_angle = EigenGetRotation(rightEyeMat);
+					core.camera_translation = EigenGetPosition(leftEyeMat);
+					core.trackball_angle = EigenGetRotation(leftEyeMat);
 
 					draw_for_vr();
-
 
 					//apparently this matters, if it's commented out buffer would be blank
 					glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
@@ -692,11 +691,15 @@ namespace igl
 					vr::Texture_t lt = { reinterpret_cast<void*>(intptr_t(lTexture)), vr::TextureType_OpenGL, colorSpace };
 					vr::VRCompositor()->Submit(vr::Eye_Left, &lt);
 
+					core.camera_translation = EigenGetPosition(rightEyeMat);
+					core.trackball_angle = EigenGetRotation(rightEyeMat);
+
+					draw_for_vr();
+
 					//submit again for the right eye and it just magically works otherwise it only shows left eye
 					glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
 					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO2);
 					glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-
 					glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO2);
 
 					vr::Texture_t rt = { reinterpret_cast<void*>(intptr_t(rTexture)), vr::TextureType_OpenGL, colorSpace };
@@ -730,11 +733,11 @@ namespace igl
 
 						frame_counter = 0;
 					}
-					getEyeTransformations();
 					//pls delete this asap
 				   /* core.camera_translation = Eigen::Vector3f(m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][0],
 						m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][1],
 						m_rTrackedDevicePose[0].mDeviceToAbsoluteTracking.m[1][2]);*/
+					getEyeTransformations();
 					core.camera_translation = EigenGetPosition(leftEyeMat);
 					core.trackball_angle = EigenGetRotation(leftEyeMat);
 

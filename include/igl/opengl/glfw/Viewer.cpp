@@ -327,7 +327,21 @@ void getEyeTransformations
 
 	leftEyeMat = headWorldMat * lTemp;
 	rightEyeMat = headWorldMat * rTemp;
+	
+	printf("%.3f, %.3f, %.3f\n%.3f, %.3f, %.3f\n%.3f, %.3f, %.3f\n%.3f, %.3f, %.3f\n", head.m[0][0], head.m[1][0], head.m[2][0],
+		head.m[0][1], head.m[1][1], head.m[2][1],
+		head.m[0][2], head.m[1][2], head.m[2][2],
+		head.m[0][3], head.m[1][3], head.m[2][3]);
 
+	/*printf("%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", headWorldMat(0,0), headWorldMat(0, 1), headWorldMat(0, 2), headWorldMat(0, 3),
+		headWorldMat(1, 0), headWorldMat(1, 1), headWorldMat(1, 2), headWorldMat(1, 3), 
+		headWorldMat(2, 0), headWorldMat(2, 1), headWorldMat(2, 2), headWorldMat(2, 3), 
+		headWorldMat(3, 0), headWorldMat(3, 1), headWorldMat(3, 2), headWorldMat(3, 3));*/
+
+		printf("%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", rTemp(0,0), rTemp(0, 1), rTemp(0, 2), rTemp(0, 3),
+			rTemp(1, 0), rTemp(1, 1), rTemp(1, 2), rTemp(1, 3),
+			rTemp(2, 0), rTemp(2, 1), rTemp(2, 2), rTemp(2, 3),
+			rTemp(3, 0), rTemp(3, 1), rTemp(3, 2), rTemp(3, 3));
 
 
 }

@@ -328,21 +328,21 @@ void getEyeTransformations
 	leftEyeMat = headWorldMat * lTemp;
 	rightEyeMat = headWorldMat * rTemp;
 	
-	printf("%.3f, %.3f, %.3f\n%.3f, %.3f, %.3f\n%.3f, %.3f, %.3f\n%.3f, %.3f, %.3f\n", head.m[0][0], head.m[1][0], head.m[2][0],
+	/*printf("%.3f, %.3f, %.3f\n%.3f, %.3f, %.3f\n%.3f, %.3f, %.3f\n%.3f, %.3f, %.3f\n", head.m[0][0], head.m[1][0], head.m[2][0],
 		head.m[0][1], head.m[1][1], head.m[2][1],
 		head.m[0][2], head.m[1][2], head.m[2][2],
-		head.m[0][3], head.m[1][3], head.m[2][3]);
+		head.m[0][3], head.m[1][3], head.m[2][3]);*/
 
 	/*printf("%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", headWorldMat(0,0), headWorldMat(0, 1), headWorldMat(0, 2), headWorldMat(0, 3),
 		headWorldMat(1, 0), headWorldMat(1, 1), headWorldMat(1, 2), headWorldMat(1, 3), 
 		headWorldMat(2, 0), headWorldMat(2, 1), headWorldMat(2, 2), headWorldMat(2, 3), 
 		headWorldMat(3, 0), headWorldMat(3, 1), headWorldMat(3, 2), headWorldMat(3, 3));*/
 
-		printf("%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", rTemp(0,0), rTemp(0, 1), rTemp(0, 2), rTemp(0, 3),
+		/*printf("%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", rTemp(0,0), rTemp(0, 1), rTemp(0, 2), rTemp(0, 3),
 			rTemp(1, 0), rTemp(1, 1), rTemp(1, 2), rTemp(1, 3),
 			rTemp(2, 0), rTemp(2, 1), rTemp(2, 2), rTemp(2, 3),
 			rTemp(3, 0), rTemp(3, 1), rTemp(3, 2), rTemp(3, 3));
-
+*/
 
 }
 
@@ -590,6 +590,7 @@ namespace igl
 				glGenTextures(1, &lTexture);
 				glGenTextures(1, &rTexture);
 
+				vr::EColorSpace colorSpace = vr::ColorSpace_Gamma;
 
 				while (!glfwWindowShouldClose(window))
 				{
@@ -686,8 +687,10 @@ namespace igl
 					glBindFramebuffer(GL_DRAW_FRAMEBUFFER, intermediateFBO);
 					glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 					glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO);
-					submitToHMD();
+					//submitToHMD();
 
+					vr::Texture_t lt = { reinterpret_cast<void*>(intptr_t(lTexture)), vr::TextureType_OpenGL, colorSpace };
+					vr::VRCompositor()->Submit(vr::Eye_Left, &lt);
 
 					//submit again for the right eye and it just magically works otherwise it only shows left eye
 					glBindFramebuffer(GL_READ_FRAMEBUFFER, framebuffer);
@@ -695,7 +698,16 @@ namespace igl
 					glBlitFramebuffer(0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
 					glBindFramebuffer(GL_FRAMEBUFFER, intermediateFBO2);
-					submitToHMD();
+
+					vr::Texture_t rt = { reinterpret_cast<void*>(intptr_t(rTexture)), vr::TextureType_OpenGL, colorSpace };
+					vr::VRCompositor()->Submit(vr::Eye_Right, &rt);
+
+					// Tell the compositor to begin work immediately instead of waiting for the next WaitGetPoses() call
+					vr::VRCompositor()->PostPresentHandoff();
+
+					glClearColor(0, 0, 0, 1);
+					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+					//submitToHMD();
 
 					//companion window still not working
 					draw();

@@ -215,9 +215,9 @@ Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f matrix) {
 	q.x() = sqrt(fmax(0, 1 + matrix(0,0) - matrix(1, 1) - matrix(2, 2))) / 2;
 	q.y() = sqrt(fmax(0, 1 - matrix(0, 0) + matrix(1, 1) - matrix(2, 2))) / 2;
 	q.z() = sqrt(fmax(0, 1 - matrix(0, 0) - matrix(1, 1) + matrix(2, 2))) / 2;
-	q.x() = -1 * copysign(q.x(), matrix(2, 1) - matrix(1, 2));
-	q.y() = -1 * copysign(q.y(), matrix(0, 2) - matrix(2, 0));
-	q.z() = -1 * copysign(q.z(), matrix(1, 0) - matrix(0, 1));
+	q.x() = -1 * copysign(q.x(), matrix(1, 2) - matrix(2, 1));
+	q.y() = -1 * copysign(q.y(), matrix(2, 0) - matrix(0, 2));
+	q.z() = -1 * copysign(q.z(), matrix(0, 1) - matrix(1, 0));
 
 	//printf("%.3f, %.3f, %.3f, %.3f ", q.x(), q.y(), q.z(), q.w());
 	return q;

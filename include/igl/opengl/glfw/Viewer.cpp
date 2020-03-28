@@ -218,6 +218,8 @@ Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f matrix) {
 	q.x() = -1 * copysign(q.x(), matrix(2, 1) - matrix(1, 2));
 	q.y() = -1 * copysign(q.y(), matrix(0, 2) - matrix(2, 0));
 	q.z() = -1 * copysign(q.z(), matrix(1, 0) - matrix(0, 1));
+
+	//printf("%.3f, %.3f, %.3f, %.3f ", q.x(), q.y(), q.z(), q.w());
 	return q;
 }
 
@@ -238,12 +240,10 @@ Eigen::Vector3f GetPosition(vr::HmdMatrix34_t matrix) {
 
 Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f matrix) {
 	Eigen::Vector3f vector;
-	vector[0] = matrix(0, 3) * -0.4;
-	vector[1] = (matrix(1, 3) - 1.6) * -0.4;
-	vector[2] = matrix(2, 3) * -0.4;
-	printf("%.3f, ", vector[0]);
-	printf("%.3f, ", vector[1]);
-	printf("%.3f\n", vector[2]);
+	vector[0] = matrix(3, 0) * -0.4;
+	vector[1] = (matrix(3, 1) - 1.6) * -0.4;
+	vector[2] = matrix(3, 2) * -0.4;
+	//printf("%.3f, %.3f, %.3f\n", vector[0], vector[1], vector[2]);
 	//printf("%.3f, ", matrix.m[3][3]);
 
 	return vector;
@@ -319,6 +319,11 @@ void getEyeTransformations
 		head.m[0][1], head.m[1][1], head.m[2][1], 0.0,
 		head.m[0][2], head.m[1][2], head.m[2][2], 0.0,
 		head.m[0][3], head.m[1][3], head.m[2][3], 1.0f;
+
+	//printf("%.3f, %.3f, %.3f\n", headWorldMat(3,0), headWorldMat(3,1), headWorldMat(3,2));
+	//printf("%.3f, %.3f, %.3f\n", head.m[0][3], head.m[1][3], head.m[2][3]);
+
+
 
 	leftEyeMat = headWorldMat * lTemp;
 	rightEyeMat = headWorldMat * rTemp;

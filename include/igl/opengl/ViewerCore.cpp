@@ -393,7 +393,7 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore()
   camera_base_zoom = 1.0f;
   camera_zoom = 1.0f;
   orthographic = false;
-  camera_view_angle = 45.0;
+  camera_view_angle = 84.0;
   camera_dnear = 1.0;
   camera_dfar = 100.0;
   camera_base_translation << 0, 0, 0;

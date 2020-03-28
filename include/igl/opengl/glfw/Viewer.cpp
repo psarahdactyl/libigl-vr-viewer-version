@@ -226,9 +226,9 @@ Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f matrix) {
 
 Eigen::Vector3f GetPosition(vr::HmdMatrix34_t matrix) {
 	Eigen::Vector3f vector;
-	vector[0] = matrix.m[0][3] * -0.4;
-	vector[1] = (matrix.m[1][3] - 1.6) * -0.4;
-	vector[2] = matrix.m[2][3] * -0.4;
+	vector[0] = matrix.m[0][3] * -1;
+	vector[1] = (matrix.m[1][3] - 1.2) * -1;
+	vector[2] = matrix.m[2][3] * -1;
 	printf("%.3f, ", vector[0]);
 	printf("%.3f, ", vector[1]);
 	printf("%.3f\n", vector[2]);
@@ -240,9 +240,9 @@ Eigen::Vector3f GetPosition(vr::HmdMatrix34_t matrix) {
 
 Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f matrix) {
 	Eigen::Vector3f vector;
-	vector[0] = matrix(3, 0) * -0.4;
-	vector[1] = (matrix(3, 1) - 1.6) * -0.4;
-	vector[2] = matrix(3, 2) * -0.4;
+	vector[0] = matrix(3, 0) * -1;
+	vector[1] = (matrix(3, 1) - 1.2) * -1;
+	vector[2] = matrix(3, 2) * -1;
 	//printf("%.3f, %.3f, %.3f\n", vector[0], vector[1], vector[2]);
 	//printf("%.3f, ", matrix.m[3][3]);
 

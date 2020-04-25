@@ -156,6 +156,10 @@ IGL_INLINE void igl::opengl::ViewerCore::draw(
       float fW = fH * (double)width/(double)height;
       frustum(-fW, fW, -fH, fH, camera_dnear, camera_dfar,proj);
     }
+    //printf("\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n\n", proj(0, 0), proj(1, 0), proj(2, 0), proj(3, 0),
+    //    proj(0, 1), proj(1, 1), proj(2, 1), proj(3, 1),
+    //    proj(0, 2), proj(1, 2), proj(2, 2), proj(3, 2),
+    //    proj(0, 3), proj(1, 3), proj(2, 3), proj(3, 3));
   }
 
   // Send transformations to the GPU

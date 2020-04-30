@@ -144,53 +144,41 @@ vr::IVRSystem* initOpenVR(uint32_t& hmdWidth, uint32_t& hmdHeight) {
 	const vr::HmdMatrix34_t& rtMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Right);
 
 	lEyeMat <<
-		ltMatrix.m[0][0], ltMatrix.m[1][0], ltMatrix.m[2][0], 0.0,
-		ltMatrix.m[0][1], ltMatrix.m[1][1], ltMatrix.m[2][1], 0.0,
-		ltMatrix.m[0][2], ltMatrix.m[1][2], ltMatrix.m[2][2], 0.0,
-		ltMatrix.m[0][3], ltMatrix.m[1][3], ltMatrix.m[2][3], 1.0f;
+		ltMatrix.m[0][0], ltMatrix.m[0][1], ltMatrix.m[0][2], ltMatrix.m[0][3],
+		ltMatrix.m[1][0], ltMatrix.m[1][1], ltMatrix.m[1][2], ltMatrix.m[1][3],
+		ltMatrix.m[2][0], ltMatrix.m[2][1], ltMatrix.m[2][2], ltMatrix.m[2][3],
+		0.0, 0.0, 0.0, 1.0f;
 
-	lEyeMat = lEyeMat.reverse().eval();
-
-	printf("\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n\n", lEyeMat(0, 0), lEyeMat(1, 0), lEyeMat(2, 0), lEyeMat(3, 0),
-		lEyeMat(0, 1), lEyeMat(1, 1), lEyeMat(2, 1), lEyeMat(3, 1),
-		lEyeMat(0, 2), lEyeMat(1, 2), lEyeMat(2, 2), lEyeMat(3, 2),
-		lEyeMat(0, 3), lEyeMat(1, 3), lEyeMat(2, 3), lEyeMat(3, 3));
+	//lEyeMat = lEyeMat.reverse().eval();	
 
 	rEyeMat <<
-		rtMatrix.m[0][0], rtMatrix.m[1][0], rtMatrix.m[2][0], 0.0,
-		rtMatrix.m[0][1], rtMatrix.m[1][1], rtMatrix.m[2][1], 0.0,
-		rtMatrix.m[0][2], rtMatrix.m[1][2], rtMatrix.m[2][2], 0.0,
-		rtMatrix.m[0][3], rtMatrix.m[1][3], rtMatrix.m[2][3], 1.0f;
+		rtMatrix.m[0][0], rtMatrix.m[0][1], rtMatrix.m[0][2], rtMatrix.m[0][3],
+		rtMatrix.m[1][0], rtMatrix.m[1][1], rtMatrix.m[1][2], rtMatrix.m[1][3],
+		rtMatrix.m[2][0], rtMatrix.m[2][1], rtMatrix.m[2][2], rtMatrix.m[2][3],
+		0.0, 0.0, 0.0, 1.0f;
 
-	rEyeMat = rEyeMat.reverse().eval();
-
-	printf("\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n\n", rEyeMat(0, 0), rEyeMat(1, 0), rEyeMat(2, 0), rEyeMat(3, 0),
-		rEyeMat(0, 1), rEyeMat(1, 1), rEyeMat(2, 1), rEyeMat(3, 1),
-		rEyeMat(0, 2), rEyeMat(1, 2), rEyeMat(2, 2), rEyeMat(3, 2),
-		rEyeMat(0, 3), rEyeMat(1, 3), rEyeMat(2, 3), rEyeMat(3, 3));
+	//rEyeMat = rEyeMat.reverse().eval();
 
 	const vr::HmdMatrix44_t& ltProj = hmd->GetProjectionMatrix(vr::Eye_Left, -nearPlaneZ, -farPlaneZ);
 	const vr::HmdMatrix44_t& rtProj = hmd->GetProjectionMatrix(vr::Eye_Right, -nearPlaneZ, -farPlaneZ);
 
 	lProjectionMat <<
-		ltProj.m[0][0], ltProj.m[1][0], ltProj.m[2][0], ltProj.m[3][0],
-		ltProj.m[0][1], ltProj.m[1][1], ltProj.m[2][1], ltProj.m[3][1],
-		ltProj.m[0][2], ltProj.m[1][2], ltProj.m[2][2], ltProj.m[3][2],
-		ltProj.m[0][3], ltProj.m[1][3], ltProj.m[2][3], ltProj.m[3][3];
-	/*printf("\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n\n", lProjectionMat(0, 0), lProjectionMat(1, 0), lProjectionMat(2, 0), lProjectionMat(3, 0),
-		lProjectionMat(0, 1), lProjectionMat(1, 1), lProjectionMat(2, 1), lProjectionMat(3, 1),
-		lProjectionMat(0, 2), lProjectionMat(1, 2), lProjectionMat(2, 2), lProjectionMat(3, 2),
-		lProjectionMat(0, 3), lProjectionMat(1, 3), lProjectionMat(2, 3), lProjectionMat(3, 3));*/
-	//printf("\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", ltProj.m[0][0], ltProj.m[1][0], ltProj.m[2][0], ltProj.m[3][0],
-	//	ltProj.m[0][1], ltProj.m[1][1], ltProj.m[2][1], ltProj.m[3][1],
-	//	ltProj.m[0][2], ltProj.m[1][2], ltProj.m[2][2], ltProj.m[3][2],
-	//	ltProj.m[0][3], ltProj.m[1][3], ltProj.m[2][3], ltProj.m[3][3]);
+		ltProj.m[0][0], ltProj.m[0][1], ltProj.m[0][2], ltProj.m[0][3],
+		ltProj.m[1][0], ltProj.m[1][1], ltProj.m[1][2], ltProj.m[1][3],
+		ltProj.m[2][0], ltProj.m[2][1], ltProj.m[2][2], ltProj.m[2][3],
+		ltProj.m[3][0], ltProj.m[3][1], ltProj.m[3][2], ltProj.m[3][3];
+
+	printf("l projection: \n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n\n", 
+		lProjectionMat(0, 0), lProjectionMat(0, 1), lProjectionMat(0, 2), lProjectionMat(0, 3),
+		lProjectionMat(1, 0), lProjectionMat(1, 1), lProjectionMat(1, 2), lProjectionMat(1, 3),
+		lProjectionMat(2, 0), lProjectionMat(2, 1), lProjectionMat(2, 2), lProjectionMat(2, 3),
+		lProjectionMat(3, 0), lProjectionMat(3, 1), lProjectionMat(3, 2), lProjectionMat(3, 3));
 
 	rProjectionMat <<
-		rtProj.m[0][0], rtProj.m[1][0], rtProj.m[2][0], rtProj.m[3][0],
-		rtProj.m[0][1], rtProj.m[1][1], rtProj.m[2][1], rtProj.m[3][1],
-		rtProj.m[0][2], rtProj.m[1][2], rtProj.m[2][2], rtProj.m[3][2],
-		rtProj.m[0][3], rtProj.m[1][3], rtProj.m[2][3], rtProj.m[3][3];
+		rtProj.m[0][0], rtProj.m[0][1], rtProj.m[0][2], rtProj.m[0][3],
+		rtProj.m[1][0], rtProj.m[1][1], rtProj.m[1][2], rtProj.m[1][3],
+		rtProj.m[2][0], rtProj.m[2][1], rtProj.m[2][2], rtProj.m[2][3],
+		rtProj.m[3][0], rtProj.m[3][1], rtProj.m[3][2], rtProj.m[3][3];
 
 	// Initialize the compositor
 	vr::IVRCompositor* compositor = vr::VRCompositor();
@@ -239,9 +227,9 @@ Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f matrix) {
 	q.x() = sqrt(fmax(0, 1 + matrix(0,0) - matrix(1, 1) - matrix(2, 2))) / 2;
 	q.y() = sqrt(fmax(0, 1 - matrix(0, 0) + matrix(1, 1) - matrix(2, 2))) / 2;
 	q.z() = sqrt(fmax(0, 1 - matrix(0, 0) - matrix(1, 1) + matrix(2, 2))) / 2;
-	q.x() = -1 * copysign(q.x(), matrix(1, 2) - matrix(2, 1));
-	q.y() = -1 * copysign(q.y(), matrix(2, 0) - matrix(0, 2));
-	q.z() = -1 * copysign(q.z(), matrix(0, 1) - matrix(1, 0));
+	q.x() = -1 * copysign(q.x(), matrix(2, 1) - matrix(1, 2));
+	q.y() = -1 * copysign(q.y(), matrix(0, 2) - matrix(2, 0));
+	q.z() = -1 * copysign(q.z(), matrix(1, 0) - matrix(0, 1));
 
 	//printf("%.3f, %.3f, %.3f, %.3f ", q.x(), q.y(), q.z(), q.w());
 	return q;
@@ -264,9 +252,9 @@ Eigen::Vector3f GetPosition(vr::HmdMatrix34_t matrix) {
 
 Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f matrix) {
 	Eigen::Vector3f vector;
-	vector[0] = matrix(3, 0) * -1;
-	vector[1] = (matrix(3, 1) - 1.2) * -1;
-	vector[2] = matrix(3, 2) * -1;
+	vector[0] = matrix(0, 3) * -1;
+	vector[1] = (matrix(1, 3) - 1.2) * -1;
+	vector[2] = matrix(2, 3) * -1;
 	printf("%.3f, %.3f, %.3f\n", vector[0], vector[1], vector[2]);
 
 	return vector;
@@ -322,10 +310,10 @@ void getEyeTransformations
 	const vr::HmdMatrix34_t head = m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
 
 	headWorldMat <<
-		head.m[0][0], head.m[1][0], head.m[2][0], 0.0,
-		head.m[0][1], head.m[1][1], head.m[2][1], 0.0,
-		head.m[0][2], head.m[1][2], head.m[2][2], 0.0,
-		head.m[0][3], head.m[1][3], head.m[2][3], 1.0f;
+		head.m[0][0], head.m[0][1], head.m[0][2], head.m[0][3],
+		head.m[1][0], head.m[1][1], head.m[1][2], head.m[1][3],
+		head.m[2][0], head.m[2][1], head.m[2][2], head.m[2][3],
+		0.0, 0.0, 0.0, 1.0f;
 
 	//printf("%.3f, %.3f, %.3f\n", headWorldMat(3,0), headWorldMat(3,1), headWorldMat(3,2));
 	//printf("%.3f, %.3f, %.3f\n", head.m[0][3], head.m[1][3], head.m[2][3]);
@@ -338,19 +326,20 @@ void getEyeTransformations
 		head.m[0][2], head.m[1][2], head.m[2][2],
 		head.m[0][3], head.m[1][3], head.m[2][3]);*/
 
-	/*printf("%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", headWorldMat(0,0), headWorldMat(0, 1), headWorldMat(0, 2), headWorldMat(0, 3),
+	printf("head: \n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", headWorldMat(0,0), headWorldMat(0, 1), headWorldMat(0, 2), headWorldMat(0, 3),
 		headWorldMat(1, 0), headWorldMat(1, 1), headWorldMat(1, 2), headWorldMat(1, 3), 
 		headWorldMat(2, 0), headWorldMat(2, 1), headWorldMat(2, 2), headWorldMat(2, 3), 
-		headWorldMat(3, 0), headWorldMat(3, 1), headWorldMat(3, 2), headWorldMat(3, 3));*/
+		headWorldMat(3, 0), headWorldMat(3, 1), headWorldMat(3, 2), headWorldMat(3, 3));
 
-	/*printf("left:\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", leftEyeMat(0, 0), leftEyeMat(0, 1), leftEyeMat(0, 2), leftEyeMat(0, 3),
+	printf("left:\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", leftEyeMat(0, 0), leftEyeMat(0, 1), leftEyeMat(0, 2), leftEyeMat(0, 3),
 		leftEyeMat(1, 0), leftEyeMat(1, 1), leftEyeMat(1, 2), leftEyeMat(1, 3),
 		leftEyeMat(2, 0), leftEyeMat(2, 1), leftEyeMat(2, 2), leftEyeMat(2, 3),
 		leftEyeMat(3, 0), leftEyeMat(3, 1), leftEyeMat(3, 2), leftEyeMat(3, 3));
+
 	printf("right:\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n", rightEyeMat(0, 0), rightEyeMat(0, 1), rightEyeMat(0, 2), rightEyeMat(0, 3),
 		rightEyeMat(1, 0), rightEyeMat(1, 1), rightEyeMat(1, 2), rightEyeMat(1, 3),
 		rightEyeMat(2, 0), rightEyeMat(2, 1), rightEyeMat(2, 2), rightEyeMat(2, 3),
-		rightEyeMat(3, 0), rightEyeMat(3, 1), rightEyeMat(3, 2), rightEyeMat(3, 3));*/
+		rightEyeMat(3, 0), rightEyeMat(3, 1), rightEyeMat(3, 2), rightEyeMat(3, 3));
 }
 
 
@@ -643,6 +632,8 @@ namespace igl
 					//Eigen::Vector4f viewport_ori = viewport;
 					// Draw
 					//core.proj = lProjectionMat;
+					//GLint matrixi = glGetUniformLocation(data_list[0].meshgl.shader_mesh, "matrix");
+					//glUniformMatrix4fv(matrixi, 1, GL_FALSE, getCurrentViewProjectionMatrix(vr::Eye_Left).data());
 					draw_for_vr();
 					// Restore viewport
 					//viewport = viewport_ori;
@@ -687,6 +678,8 @@ namespace igl
 					core.camera_translation = EigenGetPosition(leftEyeMat);
 					core.trackball_angle = EigenGetRotation(leftEyeMat);
 					//core.proj = lProjectionMat;
+					//matrixi = glGetUniformLocation(data_list[0].meshgl.shader_mesh, "matrix");
+					//glUniformMatrix4fv(matrixi, 1, GL_FALSE, getCurrentViewProjectionMatrix(vr::Eye_Left).data());
 					draw_for_vr();
 
 					//apparently this matters, if it's commented out buffer would be blank
@@ -702,6 +695,8 @@ namespace igl
 					core.camera_translation = EigenGetPosition(rightEyeMat);
 					core.trackball_angle = EigenGetRotation(rightEyeMat);
 					//core.proj = rProjectionMat;
+					//matrixi = glGetUniformLocation(data_list[0].meshgl.shader_mesh, "matrix");
+					//glUniformMatrix4fv(matrixi, 1, GL_FALSE, getCurrentViewProjectionMatrix(vr::Eye_Right).data());
 					draw_for_vr();
 
 					//submit again for the right eye and it just magically works otherwise it only shows left eye

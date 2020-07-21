@@ -12,6 +12,8 @@
 #define IGL_OPENGL_4
 #endif
 
+#include <openvr.h>
+
 #include "../../igl_inline.h"
 #include "../MeshGL.h"
 #include "../ViewerCore.h"
@@ -148,6 +150,10 @@ namespace glfw
     //   other existing viewports
     IGL_INLINE int append_core(Eigen::Vector4f viewport, bool append_empty = false);
 
+
+    IGL_INLINE int append_vrcore();
+
+
     // Erase a viewport
     //
     // Inputs:
@@ -227,6 +233,18 @@ public:
   };
 
 } // end namespace
+
+class VR {
+    float nearPlaneZ = 0.05f;
+    float farPlaneZ = 100.0f;
+    Eigen::Matrix4f lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
+
+    vr::IVRSystem* hmd = nullptr;
+    vr::IVRSystem* initOpenVR(uint32_t&, uint32_t&);
+    void handleVRError(vr::EVRInitError);
+    std::string getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError = nullptr);
+};
+
 } // end namespace
 } // end namespace
 

@@ -1138,6 +1138,115 @@ namespace glfw
     return core_list.back().id;
   }
 
+  IGL_INLINE int Viewer::append_vrcore()
+  {
+      for (int i = 0; i < 2; i++) {
+          core_list.push_back(ViewerCoreVR()); // copies the previous active core and only changes the viewport
+          core_list.back().viewport = Eigen::Vector4f(i*640, 0, 640, 800);
+          core_list.back().id = next_core_id;
+          next_core_id <<= 1;
+          for (auto& data : data_list)
+          {
+              data.set_visible(true, core_list.back().id);
+              data.copy_options(core(), core_list.back());
+          }
+      }
+      //selected_core_index = core_list.size() - 1;
+      return core_list.back().id;
+  }
+
 } // end namespace
+
+vr::IVRSystem* VR::initOpenVR(uint32_t& hmdWidth, uint32_t& hmdHeight) {
+    vr::EVRInitError err = vr::VRInitError_None;
+    hmd = vr::VR_Init(&err, vr::VRApplication_Scene);
+
+    if (err != vr::VRInitError_None)
+    {
+        handleVRError(err);
+    }
+
+    std::clog << GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String) << std::endl;
+    std::clog << GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String) << std::endl;
+
+    const std::string& driver = getHMDString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
+    const std::string& model = getHMDString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_ModelNumber_String);
+    const std::string& serial = getHMDString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
+    const float freq = hmd->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_DisplayFrequency_Float);
+
+    //get the proper resolution of the hmd
+    hmd->GetRecommendedRenderTargetSize(&hmdWidth, &hmdHeight);
+
+    fprintf(stderr, "HMD: %s '%s' #%s (%d x %d @ %g Hz)\n", driver.c_str(), model.c_str(), serial.c_str(), hmdWidth, hmdHeight, freq);
+
+    const vr::HmdMatrix34_t& ltMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Left);
+    const vr::HmdMatrix34_t& rtMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Right);
+
+    lEyeMat <<
+        ltMatrix.m[0][0], ltMatrix.m[0][1], ltMatrix.m[0][2], ltMatrix.m[0][3],
+        ltMatrix.m[1][0], ltMatrix.m[1][1], ltMatrix.m[1][2], ltMatrix.m[1][3],
+        ltMatrix.m[2][0], ltMatrix.m[2][1], ltMatrix.m[2][2], ltMatrix.m[2][3],
+        0.0, 0.0, 0.0, 1.0f;
+
+    //lEyeMat = lEyeMat.reverse().eval();	
+
+    rEyeMat <<
+        rtMatrix.m[0][0], rtMatrix.m[0][1], rtMatrix.m[0][2], rtMatrix.m[0][3],
+        rtMatrix.m[1][0], rtMatrix.m[1][1], rtMatrix.m[1][2], rtMatrix.m[1][3],
+        rtMatrix.m[2][0], rtMatrix.m[2][1], rtMatrix.m[2][2], rtMatrix.m[2][3],
+        0.0, 0.0, 0.0, 1.0f;
+
+    //rEyeMat = rEyeMat.reverse().eval();
+
+    const vr::HmdMatrix44_t& ltProj = hmd->GetProjectionMatrix(vr::Eye_Left, -nearPlaneZ, -farPlaneZ);
+    const vr::HmdMatrix44_t& rtProj = hmd->GetProjectionMatrix(vr::Eye_Right, -nearPlaneZ, -farPlaneZ);
+
+    lProjectionMat <<
+        ltProj.m[0][0], ltProj.m[0][1], ltProj.m[0][2], ltProj.m[0][3],
+        ltProj.m[1][0], ltProj.m[1][1], ltProj.m[1][2], ltProj.m[1][3],
+        ltProj.m[2][0], ltProj.m[2][1], ltProj.m[2][2], ltProj.m[2][3],
+        ltProj.m[3][0], ltProj.m[3][1], ltProj.m[3][2], ltProj.m[3][3];
+
+    printf("l projection: \n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n\n",
+        lProjectionMat(0, 0), lProjectionMat(0, 1), lProjectionMat(0, 2), lProjectionMat(0, 3),
+        lProjectionMat(1, 0), lProjectionMat(1, 1), lProjectionMat(1, 2), lProjectionMat(1, 3),
+        lProjectionMat(2, 0), lProjectionMat(2, 1), lProjectionMat(2, 2), lProjectionMat(2, 3),
+        lProjectionMat(3, 0), lProjectionMat(3, 1), lProjectionMat(3, 2), lProjectionMat(3, 3));
+
+    rProjectionMat <<
+        rtProj.m[0][0], rtProj.m[0][1], rtProj.m[0][2], rtProj.m[0][3],
+        rtProj.m[1][0], rtProj.m[1][1], rtProj.m[1][2], rtProj.m[1][3],
+        rtProj.m[2][0], rtProj.m[2][1], rtProj.m[2][2], rtProj.m[2][3],
+        rtProj.m[3][0], rtProj.m[3][1], rtProj.m[3][2], rtProj.m[3][3];
+
+    // Initialize the compositor
+    vr::IVRCompositor* compositor = vr::VRCompositor();
+    if (!compositor) {
+        fprintf(stderr, "OpenVR Compositor initialization failed. See log file for details\n");
+        vr::VR_Shutdown();
+        assert("VR failed" && false);
+    }
+
+    return hmd;
+}
+void VR::handleVRError(vr::EVRInitError err)
+{
+    throw std::runtime_error(vr::VR_GetVRInitErrorAsEnglishDescription(err));
+}
+std::string VR::getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError = nullptr) {
+    uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, nullptr, 0, peError);
+    if (unRequiredBufferLen == 0) {
+        return "";
+    }
+
+    char* pchBuffer = new char[unRequiredBufferLen];
+    unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, pchBuffer, unRequiredBufferLen, peError);
+    std::string sResult = pchBuffer;
+    delete[] pchBuffer;
+
+    return sResult;
+}
+
 } // end namespace
+
 }

@@ -153,6 +153,10 @@ public:
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
+class ViewerCoreVR : public ViewerCore {
+    int test = 10;
+};
+
 }
 }
 

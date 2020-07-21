@@ -1138,11 +1138,11 @@ namespace glfw
     return core_list.back().id;
   }
 
-  IGL_INLINE int Viewer::append_vrcore()
+  IGL_INLINE int Viewer::append_vrcore(VRApplication VRapp)
   {
       for (int i = 0; i < 2; i++) {
-          core_list.push_back(ViewerCoreVR()); // copies the previous active core and only changes the viewport
-          core_list.back().viewport = Eigen::Vector4f(i*640, 0, 640, 800);
+          core_list.push_back(ViewerCoreVR(VRapp)); // copies the previous active core and only changes the viewport
+          //core_list.back().viewport = Eigen::Vector4f(i*640, 0, 640, 800);
           core_list.back().id = next_core_id;
           next_core_id <<= 1;
           for (auto& data : data_list)
@@ -1161,7 +1161,7 @@ namespace glfw
 // Purpose: helper to get a string from a tracked device property and turn it
 //			into a std::string
 //-----------------------------------------------------------------------------
-std::string VR::GetTrackedDeviceString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError)
+std::string VRApplication::GetTrackedDeviceString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError)
 {
     uint32_t requiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, NULL, 0, peError);
     if (requiredBufferLen == 0)
@@ -1178,7 +1178,7 @@ std::string VR::GetTrackedDeviceString(vr::IVRSystem* pHmd, vr::TrackedDeviceInd
 //-----------------------------------------------------------------------------
 // Purpose: helper to get a string from a tracked device type class
 //-----------------------------------------------------------------------------
-std::string VR::GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class) {
+std::string VRApplication::GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class) {
 
     std::string str_td_class = "Unknown class";
 
@@ -1207,11 +1207,11 @@ std::string VR::GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class) {
     return str_td_class;
 }
 
-VR::VR() {
+VRApplication::VRApplication() {
     initOpenVR();
 }
 
-void VR::initOpenVR() {
+void VRApplication::initOpenVR() {
     vr::EVRInitError err = vr::VRInitError_None;
     hmd = vr::VR_Init(&err, vr::VRApplication_Scene);
 
@@ -1281,11 +1281,11 @@ void VR::initOpenVR() {
         assert("VR failed" && false);
     }
 }
-void VR::handleVRError(vr::EVRInitError err)
+void VRApplication::handleVRError(vr::EVRInitError err)
 {
     throw std::runtime_error(vr::VR_GetVRInitErrorAsEnglishDescription(err));
 }
-std::string VR::getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError) {
+std::string VRApplication::getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError) {
     uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, nullptr, 0, peError);
     if (unRequiredBufferLen == 0) {
         return "";

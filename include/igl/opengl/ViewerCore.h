@@ -154,6 +154,8 @@ public:
 };
 
 class ViewerCoreVR : public ViewerCore {
+public:
+    ViewerCoreVR(VRApplication);
     int test = 10;
 };
 

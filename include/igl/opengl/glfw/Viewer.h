@@ -151,7 +151,7 @@ namespace glfw
     IGL_INLINE int append_core(Eigen::Vector4f viewport, bool append_empty = false);
 
 
-    IGL_INLINE int append_vrcore();
+    IGL_INLINE int append_vrcore(VRApplication);
 
 
     // Erase a viewport
@@ -234,10 +234,10 @@ public:
 
 } // end namespace
 
-class VR {
+class VRApplication {
     float nearPlaneZ = 0.05f;
     float farPlaneZ = 100.0f;
-    uint32_t hmdWidth, hmdHeight;
+    uint32_t hmdWidth = 1280, hmdHeight = 720;
     Eigen::Matrix4f lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
 
 
@@ -250,7 +250,7 @@ class VR {
     void initOpenVR();
 
 public:
-    VR();
+    VRApplication();
 };
 
 } // end namespace

@@ -416,6 +416,41 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore()
   viewport.setZero();
 }
 
+igl::opengl::ViewerCoreVR::ViewerCoreVR(igl::opengl::VRApplication VRapp)
+{
+    // Default colors
+    background_color << 0.3f, 0.3f, 0.5f, 1.0f;
+
+    // Default lights settings
+    light_position << 0.0f, 0.3f, 0.0f;
+    lighting_factor = 1.0f; //on
+
+    // Default trackball
+    trackball_angle = Eigen::Quaternionf::Identity();
+    rotation_type = ViewerCore::ROTATION_TYPE_TRACKBALL;
+    set_rotation_type(ViewerCore::ROTATION_TYPE_TWO_AXIS_VALUATOR_FIXED_UP);
+
+    // Camera parameters
+    camera_base_zoom = 1.0f;
+    camera_zoom = 1.0f;
+    orthographic = false;
+    camera_view_angle = 45.0;
+    camera_dnear = 1.0;
+    camera_dfar = 100.0;
+    camera_base_translation << 0, 0, 0;
+    camera_translation << 0, 0, 0;
+    camera_eye << 0, 0, 5;
+    camera_center << 0, 0, 0;
+    camera_up << 0, 1, 0;
+
+    depth_test = true;
+
+    is_animating = false;
+    animation_max_fps = 30.;
+
+    viewport.setZero();
+}
+
 IGL_INLINE void igl::opengl::ViewerCore::init()
 {
 }

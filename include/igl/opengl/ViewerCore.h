@@ -14,6 +14,10 @@
 #include <Eigen/Geometry>
 #include <Eigen/Core>
 
+#include "glfw/Viewer.h"
+
+#include <openvr.h>
+
 namespace igl
 {
 namespace opengl
@@ -151,6 +155,24 @@ public:
   Eigen::Matrix4f norm;
   public:
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
+class VRApplication {
+    float nearPlaneZ = 0.05f;
+    float farPlaneZ = 100.0f;
+    uint32_t hmdWidth = 1280, hmdHeight = 720;
+    Eigen::Matrix4f lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
+
+    std::string GetTrackedDeviceString(vr::IVRSystem*, vr::TrackedDeviceIndex_t, vr::TrackedDeviceProperty, vr::TrackedPropertyError* peError = NULL);
+    std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class);
+
+    std::string getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError = nullptr);
+    vr::IVRSystem* hmd = nullptr;
+    void handleVRError(vr::EVRInitError);
+    void initOpenVR();
+
+public:
+    VRApplication();
 };
 
 class ViewerCoreVR : public ViewerCore {

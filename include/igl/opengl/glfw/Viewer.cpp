@@ -44,6 +44,7 @@
 #include <igl/unproject.h>
 #include <igl/serialize.h>
 
+
 // Internal global variables used for glfw event handling
 static igl::opengl::glfw::Viewer * __viewer;
 static double highdpi = 1;

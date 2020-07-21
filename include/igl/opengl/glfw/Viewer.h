@@ -12,8 +12,6 @@
 #define IGL_OPENGL_4
 #endif
 
-#include <openvr.h>
-
 #include "../../igl_inline.h"
 #include "../MeshGL.h"
 #include "../ViewerCore.h"
@@ -38,6 +36,7 @@ namespace igl
 {
 namespace opengl
 {
+
 namespace glfw
 {
   // GLFW-based mesh viewer
@@ -233,25 +232,6 @@ public:
   };
 
 } // end namespace
-
-class VRApplication {
-    float nearPlaneZ = 0.05f;
-    float farPlaneZ = 100.0f;
-    uint32_t hmdWidth = 1280, hmdHeight = 720;
-    Eigen::Matrix4f lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
-
-
-    std::string GetTrackedDeviceString(vr::IVRSystem*, vr::TrackedDeviceIndex_t, vr::TrackedDeviceProperty, vr::TrackedPropertyError* peError = NULL);
-    std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class);
-
-    std::string getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError = nullptr);
-    vr::IVRSystem* hmd = nullptr;
-    void handleVRError(vr::EVRInitError);
-    void initOpenVR();
-
-public:
-    VRApplication();
-};
 
 } // end namespace
 } // end namespace

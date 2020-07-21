@@ -237,12 +237,20 @@ public:
 class VR {
     float nearPlaneZ = 0.05f;
     float farPlaneZ = 100.0f;
+    uint32_t hmdWidth, hmdHeight;
     Eigen::Matrix4f lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
 
-    vr::IVRSystem* hmd = nullptr;
-    vr::IVRSystem* initOpenVR(uint32_t&, uint32_t&);
-    void handleVRError(vr::EVRInitError);
+
+    std::string GetTrackedDeviceString(vr::IVRSystem*, vr::TrackedDeviceIndex_t, vr::TrackedDeviceProperty, vr::TrackedPropertyError* peError = NULL);
+    std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class);
+
     std::string getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError = nullptr);
+    vr::IVRSystem* hmd = nullptr;
+    void handleVRError(vr::EVRInitError);
+    void initOpenVR();
+
+public:
+    VR();
 };
 
 } // end namespace

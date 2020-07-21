@@ -1157,7 +1157,61 @@ namespace glfw
 
 } // end namespace
 
-vr::IVRSystem* VR::initOpenVR(uint32_t& hmdWidth, uint32_t& hmdHeight) {
+//-----------------------------------------------------------------------------
+// Purpose: helper to get a string from a tracked device property and turn it
+//			into a std::string
+//-----------------------------------------------------------------------------
+std::string VR::GetTrackedDeviceString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError)
+{
+    uint32_t requiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, NULL, 0, peError);
+    if (requiredBufferLen == 0)
+        return "";
+
+    char* pchBuffer = new char[requiredBufferLen];
+    requiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, pchBuffer, requiredBufferLen, peError);
+    std::string sResult = pchBuffer;
+    delete[] pchBuffer;
+
+    return sResult;
+}
+
+//-----------------------------------------------------------------------------
+// Purpose: helper to get a string from a tracked device type class
+//-----------------------------------------------------------------------------
+std::string VR::GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class) {
+
+    std::string str_td_class = "Unknown class";
+
+    switch (td_class)
+    {
+    case vr::TrackedDeviceClass_Invalid:			// = 0, the ID was not valid.
+        str_td_class = "invalid";
+        break;
+    case vr::TrackedDeviceClass_HMD:				// = 1, Head-Mounted Displays
+        str_td_class = "hmd";
+        break;
+    case vr::TrackedDeviceClass_Controller:			// = 2, Tracked controllers
+        str_td_class = "controller";
+        break;
+    case vr::TrackedDeviceClass_GenericTracker:		// = 3, Generic trackers, similar to controllers
+        str_td_class = "generic tracker";
+        break;
+    case vr::TrackedDeviceClass_TrackingReference:	// = 4, Camera and base stations that serve as tracking reference points
+        str_td_class = "base station";
+        break;
+    case vr::TrackedDeviceClass_DisplayRedirect:	// = 5, Accessories that aren't necessarily tracked themselves, but may redirect video output from other tracked devices
+        str_td_class = "display redirect";
+        break;
+    }
+
+    return str_td_class;
+}
+
+VR::VR() {
+    initOpenVR();
+}
+
+void VR::initOpenVR() {
     vr::EVRInitError err = vr::VRInitError_None;
     hmd = vr::VR_Init(&err, vr::VRApplication_Scene);
 
@@ -1226,14 +1280,12 @@ vr::IVRSystem* VR::initOpenVR(uint32_t& hmdWidth, uint32_t& hmdHeight) {
         vr::VR_Shutdown();
         assert("VR failed" && false);
     }
-
-    return hmd;
 }
 void VR::handleVRError(vr::EVRInitError err)
 {
     throw std::runtime_error(vr::VR_GetVRInitErrorAsEnglishDescription(err));
 }
-std::string VR::getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError = nullptr) {
+std::string VR::getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError) {
     uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, nullptr, 0, peError);
     if (unRequiredBufferLen == 0) {
         return "";

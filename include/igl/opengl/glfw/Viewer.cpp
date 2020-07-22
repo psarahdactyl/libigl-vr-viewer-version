@@ -1143,7 +1143,7 @@ namespace glfw
   {
       for (int i = 0; i < 2; i++) {
           core_list.push_back(ViewerCoreVR(VRapp, (vr::EVREye)i)); // copies the previous active core and only changes the viewport
-          core_list.back().viewport = Eigen::Vector4f(i*640, 0, 640, 800);
+          //core_list.back().viewport = Eigen::Vector4f(i*640, 0, 640, 800);
           core_list.back().id = next_core_id;
           next_core_id <<= 1;
           for (auto& data : data_list)
@@ -1206,6 +1206,14 @@ std::string VRApplication::GetTrackedDeviceClassString(vr::ETrackedDeviceClass t
     }
 
     return str_td_class;
+}
+
+int VRApplication::getHmdWidth() {
+    return hmdWidth;
+}
+
+int VRApplication::getHmdHeight() {
+    return hmdHeight;
 }
 
 VRApplication::VRApplication() {

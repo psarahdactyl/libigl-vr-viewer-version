@@ -172,6 +172,8 @@ class VRApplication {
     void initOpenVR();
 
 public:
+    int getHmdWidth();
+    int getHmdHeight();
     VRApplication();
 };
 

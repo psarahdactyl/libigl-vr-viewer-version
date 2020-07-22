@@ -450,7 +450,7 @@ igl::opengl::ViewerCoreVR::ViewerCoreVR(igl::opengl::VRApplication VRapp, vr::EV
     is_animating = false;
     animation_max_fps = 30.;
 
-    viewport.setZero();
+    viewport = Eigen::Vector4f((int)eye * VRapp.getHmdWidth(), 0, VRapp.getHmdWidth(), VRapp.getHmdHeight());
 }
 
 IGL_INLINE void igl::opengl::ViewerCore::init()

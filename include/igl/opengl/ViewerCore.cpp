@@ -416,10 +416,12 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore()
   viewport.setZero();
 }
 
-igl::opengl::ViewerCoreVR::ViewerCoreVR(igl::opengl::VRApplication VRapp)
+igl::opengl::ViewerCoreVR::ViewerCoreVR(igl::opengl::VRApplication VRapp, vr::EVREye eye)
 {
+    this->eye = eye;
     // Default colors
-    background_color << 0.3f, 0.3f, 0.5f, 1.0f;
+    // Different background color based on eyes for easier debugging
+    background_color << (int)eye * 0.3f, 0.3f, 0.5f, 1.0f;
 
     // Default lights settings
     light_position << 0.0f, 0.3f, 0.0f;

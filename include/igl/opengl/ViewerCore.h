@@ -176,9 +176,9 @@ public:
 };
 
 class ViewerCoreVR : public ViewerCore {
+    vr::EVREye eye;
 public:
-    ViewerCoreVR(VRApplication);
-    int test = 10;
+    ViewerCoreVR(VRApplication, vr::EVREye);
 };
 
 }

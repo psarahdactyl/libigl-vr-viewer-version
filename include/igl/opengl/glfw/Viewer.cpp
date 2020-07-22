@@ -1220,6 +1220,8 @@ VRApplication::VRApplication() {
     initOpenVR();
 }
 
+
+
 void VRApplication::initOpenVR() {
     vr::EVRInitError err = vr::VRInitError_None;
     hmd = vr::VR_Init(&err, vr::VRApplication_Scene);
@@ -1307,6 +1309,83 @@ std::string VRApplication::getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIn
 
     return sResult;
 }
+Eigen::Matrix4f VRApplication::convertMatrix(vr::HmdMatrix34_t vrmat) {
+    Eigen::Matrix4f mat;
+    mat <<
+        vrmat.m[0][0], vrmat.m[1][0], vrmat.m[2][0], 0.0,
+        vrmat.m[0][1], vrmat.m[1][1], vrmat.m[2][1], 0.0,
+        vrmat.m[0][2], vrmat.m[1][2], vrmat.m[2][2], 0.0,
+        vrmat.m[0][3], vrmat.m[1][3], vrmat.m[2][3], 1.0f;
+    return mat;
+      
+}
+
+Eigen::Matrix4f VRApplication::getEyeTransformation(int isLeft) {
+    vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+    assert(m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid);
+    const vr::HmdMatrix34_t head = m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
+    vr::HmdMatrix34_t eyeFromHead;
+    if(isLeft)
+        eyeFromHead = hmd->GetEyeToHeadTransform(vr::Eye_Left);
+    else
+        eyeFromHead = hmd->GetEyeToHeadTransform(vr::Eye_Right);
+    Eigen::Matrix4f temp, headMat;
+    temp = convertMatrix(eyeFromHead);
+    headMat = convertMatrix(head);
+    Eigen::Matrix4f res = temp * headMat;
+    return res;
+
+}
+
+
+Eigen::Quaternionf VRApplication::EigenGetRotation(Eigen::Matrix4f matrix) {
+    Eigen::Quaternionf q;
+
+    q.w() = sqrt(fmax(0, 1 + matrix(0, 0) + matrix(1, 1) + matrix(2, 2))) / 2;
+    q.x() = sqrt(fmax(0, 1 + matrix(0, 0) - matrix(1, 1) - matrix(2, 2))) / 2;
+    q.y() = sqrt(fmax(0, 1 - matrix(0, 0) + matrix(1, 1) - matrix(2, 2))) / 2;
+    q.z() = sqrt(fmax(0, 1 - matrix(0, 0) - matrix(1, 1) + matrix(2, 2))) / 2;
+    q.x() = -1 * copysign(q.x(), matrix(1, 2) - matrix(2, 1));
+    q.y() = -1 * copysign(q.y(), matrix(2, 0) - matrix(0, 2));
+    q.z() = -1 * copysign(q.z(), matrix(0, 1) - matrix(1, 0));
+
+    //printf("%.3f, %.3f, %.3f, %.3f ", q.x(), q.y(), q.z(), q.w());
+    return q;
+}
+
+Eigen::Vector3f VRApplication::EigenGetPosition(Eigen::Matrix4f matrix) {
+    Eigen::Vector3f vector;
+    vector[0] = matrix(3, 0) * -0.6;
+    vector[1] = (matrix(3, 1) - 1.2) * -0.6;
+    vector[2] = matrix(3, 2) * -0.6;
+    //printf("%.3f, %.3f, %.3f\n", vector[0], vector[1], vector[2]);
+    //printf("%.3f, ", matrix.m[3][3]);
+
+    return vector;
+}
+
+void VRApplication::submitToHMD() {
+    vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+
+    vr::EColorSpace colorSpace = vr::ColorSpace_Gamma;
+
+    //vr::Texture_t lt = { (void*)(uintptr_t)ltEyeTexture, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+
+    vr::Texture_t lt = { reinterpret_cast<void*>(intptr_t(lTexture)), vr::TextureType_OpenGL, colorSpace };
+    vr::VRCompositor()->Submit(vr::Eye_Left, &lt);
+
+    //vr::Texture_t rt = { (void*)(uintptr_t)rtEyeTexture, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+
+
+    vr::Texture_t rt = { reinterpret_cast<void*>(intptr_t(rTexture)), vr::TextureType_OpenGL, colorSpace };
+    vr::VRCompositor()->Submit(vr::Eye_Right, &rt);
+
+    // Tell the compositor to begin work immediately instead of waiting for the next WaitGetPoses() call
+    vr::VRCompositor()->PostPresentHandoff();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
 
 } // end namespace
 

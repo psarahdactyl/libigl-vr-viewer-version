@@ -162,6 +162,8 @@ class VRApplication {
     float farPlaneZ = 100.0f;
     uint32_t hmdWidth = 1280, hmdHeight = 720;
     Eigen::Matrix4f lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
+    GLuint lTexture, rTexture;
+    vr::TrackedDevicePose_t m_rTrackedDevicePose[vr::k_unMaxTrackedDeviceCount];
 
     std::string GetTrackedDeviceString(vr::IVRSystem*, vr::TrackedDeviceIndex_t, vr::TrackedDeviceProperty, vr::TrackedPropertyError* peError = NULL);
     std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class);
@@ -170,6 +172,12 @@ class VRApplication {
     vr::IVRSystem* hmd = nullptr;
     void handleVRError(vr::EVRInitError);
     void initOpenVR();
+    Eigen::Matrix4f convertMatrix(vr::HmdMatrix34_t);
+    Eigen::Matrix4f getEyeTransformation(int);
+    Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f);
+    Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f);
+    void submitToHMD();
+
 
 public:
     int getHmdWidth();

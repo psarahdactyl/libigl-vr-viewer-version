@@ -23,6 +23,71 @@ namespace igl
 namespace opengl
 {
 
+    class VRApplication {
+        float nearPlaneZ = 0.05f;
+        float farPlaneZ = 100.0f;
+        uint32_t hmdWidth = 1280, hmdHeight = 720;
+        Eigen::Matrix4f lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
+        GLuint lTexture, rTexture;
+        vr::TrackedDevicePose_t m_rTrackedDevicePose[vr::k_unMaxTrackedDeviceCount];
+
+        std::string GetTrackedDeviceString(vr::IVRSystem*, vr::TrackedDeviceIndex_t, vr::TrackedDeviceProperty, vr::TrackedPropertyError* peError = NULL);
+        std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class);
+
+        std::string getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError = nullptr);
+        vr::IVRSystem* hmd = nullptr;
+        void handleVRError(vr::EVRInitError);
+        void initOpenVR();
+        Eigen::Matrix4f convertMatrix(vr::HmdMatrix34_t);
+        Eigen::Matrix4f getEyeTransformation(int);
+        Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f);
+        Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f);
+
+        struct FramebufferDesc
+        {
+            GLuint depthBufferId;
+            GLuint renderTextureId;
+            GLuint renderFramebufferId;
+            GLuint resolveTextureId;
+            GLuint resolveFramebufferId;
+        };
+
+        //Companion Window
+        int companionWindowWidth = 640;
+        int companionWindowHeight = 320;
+        int companionWindowIndexSize;
+        GLuint companionWindowVAO, companionWindowIDVertBuffer, companionWindowIDIndexBuffer, companionWindowProgramID;
+        IGL_INLINE bool createFrameBuffer(FramebufferDesc&);
+        IGL_INLINE void setupCompanionWindow();
+
+    public:
+        FramebufferDesc leftEyeDesc;
+        FramebufferDesc rightEyeDesc;
+
+        struct Vector2 {
+            float x;
+            float y;
+            Vector2() : x(0), y(0) {};
+            Vector2(float x, float y) : x(x), y(y) {};
+        };
+
+        struct VertexDataWindow
+        {
+            Vector2 position;
+            Vector2 texCoord;
+
+            VertexDataWindow(const Vector2& pos, const Vector2 tex) : position(pos), texCoord(tex) {	}
+        };
+
+        IGL_INLINE void updatePose();
+        IGL_INLINE void submitToHMD();
+        IGL_INLINE int getHmdWidth();
+        IGL_INLINE int getHmdHeight();
+        IGL_INLINE VRApplication();
+        IGL_INLINE void initGl();
+        IGL_INLINE void updateCompanionWindow();
+    };
+
 // Forward declaration
 class ViewerData;
 
@@ -31,6 +96,12 @@ class ViewerData;
 class ViewerCore
 {
 public:
+    bool vr = false;
+
+    VRApplication VRapp;
+
+    IGL_INLINE ViewerCore(VRApplication);
+
   IGL_INLINE ViewerCore();
 
   // Initialization
@@ -76,6 +147,7 @@ public:
   // Draw everything
   //
   // data cannot be const because it is being set to "clean"
+  IGL_INLINE void drawVR(ViewerData& data, bool update_matrices = true);
   IGL_INLINE void draw(ViewerData& data, bool update_matrices = true);
   IGL_INLINE void draw_buffer(
     ViewerData& data,
@@ -157,39 +229,7 @@ public:
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-class VRApplication {
-    float nearPlaneZ = 0.05f;
-    float farPlaneZ = 100.0f;
-    uint32_t hmdWidth = 1280, hmdHeight = 720;
-    Eigen::Matrix4f lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
-    GLuint lTexture, rTexture;
-    vr::TrackedDevicePose_t m_rTrackedDevicePose[vr::k_unMaxTrackedDeviceCount];
 
-    std::string GetTrackedDeviceString(vr::IVRSystem*, vr::TrackedDeviceIndex_t, vr::TrackedDeviceProperty, vr::TrackedPropertyError* peError = NULL);
-    std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class);
-
-    std::string getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError = nullptr);
-    vr::IVRSystem* hmd = nullptr;
-    void handleVRError(vr::EVRInitError);
-    void initOpenVR();
-    Eigen::Matrix4f convertMatrix(vr::HmdMatrix34_t);
-    Eigen::Matrix4f getEyeTransformation(int);
-    Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f);
-    Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f);
-    void submitToHMD();
-
-
-public:
-    int getHmdWidth();
-    int getHmdHeight();
-    VRApplication();
-};
-
-class ViewerCoreVR : public ViewerCore {
-    vr::EVREye eye;
-public:
-    ViewerCoreVR(VRApplication, vr::EVREye);
-};
 
 }
 }

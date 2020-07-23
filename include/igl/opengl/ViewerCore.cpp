@@ -344,6 +344,64 @@ IGL_INLINE void igl::opengl::ViewerCore::draw_buffer(ViewerData& data,
   free(pixels);
 }
 
+IGL_INLINE void igl::opengl::ViewerCore::drawVR(
+    ViewerData& data,
+    bool update_matrices)
+{
+    int width = VRapp.getHmdWidth();
+    int height = VRapp.getHmdHeight();
+
+    printf("Viewer VR Draw!, left eye buffer: %u\n resolved frame buffer id:%u", VRapp.leftEyeDesc.renderFramebufferId, VRapp.leftEyeDesc.resolveFramebufferId);
+    glEnable(GL_MULTISAMPLE);
+    //left eye
+    glBindFramebuffer(GL_FRAMEBUFFER, VRapp.leftEyeDesc.renderFramebufferId);
+    draw(data, update_matrices);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glDisable(GL_MULTISAMPLE);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, VRapp.leftEyeDesc.renderFramebufferId);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, VRapp.leftEyeDesc.resolveFramebufferId);
+
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height,
+        GL_COLOR_BUFFER_BIT,
+        GL_LINEAR);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    glEnable(GL_MULTISAMPLE);
+
+    printf("Viewer VR Draw!, left eye buffer: %u\n resolved frame buffer id:%u", VRapp.rightEyeDesc.renderFramebufferId, VRapp.rightEyeDesc.resolveFramebufferId);
+
+    //right eye
+    glBindFramebuffer(GL_FRAMEBUFFER, VRapp.rightEyeDesc.renderFramebufferId);
+    draw(data, update_matrices);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glDisable(GL_MULTISAMPLE);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, VRapp.rightEyeDesc.renderFramebufferId);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, VRapp.rightEyeDesc.resolveFramebufferId);
+
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height,
+        GL_COLOR_BUFFER_BIT,
+        GL_LINEAR);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    //VRapp.updateCompanionWindow();
+
+
+
+    //vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+    //vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture);
+    //vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture);
+    VRapp.submitToHMD();
+}
+
+
 IGL_INLINE void igl::opengl::ViewerCore::set_rotation_type(
   const igl::opengl::ViewerCore::RotationType & value)
 {
@@ -416,12 +474,13 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore()
   viewport.setZero();
 }
 
-igl::opengl::ViewerCoreVR::ViewerCoreVR(igl::opengl::VRApplication VRapp, vr::EVREye eye)
+IGL_INLINE igl::opengl::ViewerCore::ViewerCore(igl::opengl::VRApplication VRapp)
 {
-    this->eye = eye;
+    vr = true;
+    this->VRapp = VRapp;
     // Default colors
     // Different background color based on eyes for easier debugging
-    background_color << (int)eye * 0.3f, 0.3f, 0.5f, 1.0f;
+    background_color << 0.0f, 0.3f, 0.5f, 1.0f;
 
     // Default lights settings
     light_position << 0.0f, 0.3f, 0.0f;
@@ -448,13 +507,15 @@ igl::opengl::ViewerCoreVR::ViewerCoreVR(igl::opengl::VRApplication VRapp, vr::EV
     depth_test = true;
 
     is_animating = false;
-    animation_max_fps = 30.;
+    animation_max_fps = 120.;
 
-    viewport = Eigen::Vector4f((int)eye * VRapp.getHmdWidth(), 0, VRapp.getHmdWidth(), VRapp.getHmdHeight());
+    
+    viewport = Eigen::Vector4f(0, 0, VRapp.getHmdWidth(), VRapp.getHmdWidth());
 }
 
 IGL_INLINE void igl::opengl::ViewerCore::init()
 {
+    VRapp.initGl();
 }
 
 IGL_INLINE void igl::opengl::ViewerCore::shut()

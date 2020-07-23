@@ -924,7 +924,12 @@ namespace glfw
       {
         if (mesh.is_visible & core.id)
         {
-          core.draw(mesh);
+            if (core.vr) {
+                core.drawVR(mesh);
+            }
+            else {
+                core.draw(mesh);
+            }
         }
       }
     }
@@ -1141,16 +1146,14 @@ namespace glfw
 
   IGL_INLINE int Viewer::append_vrcore(VRApplication VRapp)
   {
-      for (int i = 0; i < 2; i++) {
-          core_list.push_back(ViewerCoreVR(VRapp, (vr::EVREye)i)); // copies the previous active core and only changes the viewport
-          //core_list.back().viewport = Eigen::Vector4f(i*640, 0, 640, 800);
-          core_list.back().id = next_core_id;
-          next_core_id <<= 1;
-          for (auto& data : data_list)
-          {
-              data.set_visible(true, core_list.back().id);
-              data.copy_options(core(), core_list.back());
-          }
+      core_list.push_back(ViewerCore(VRapp)); // copies the previous active core and only changes the viewport
+      //core_list.back().viewport = Eigen::Vector4f(i*640, 0, 640, 800);
+      core_list.back().id = next_core_id;
+      next_core_id <<= 1;
+      for (auto& data : data_list)
+      {
+          data.set_visible(true, core_list.back().id);
+          data.copy_options(core(), core_list.back());
       }
       //selected_core_index = core_list.size() - 1;
       return core_list.back().id;
@@ -1208,21 +1211,11 @@ std::string VRApplication::GetTrackedDeviceClassString(vr::ETrackedDeviceClass t
     return str_td_class;
 }
 
-int VRApplication::getHmdWidth() {
-    return hmdWidth;
-}
-
-int VRApplication::getHmdHeight() {
-    return hmdHeight;
-}
-
 VRApplication::VRApplication() {
     initOpenVR();
 }
 
-
-
-void VRApplication::initOpenVR() {
+IGL_INLINE void VRApplication::initOpenVR() {
     vr::EVRInitError err = vr::VRInitError_None;
     hmd = vr::VR_Init(&err, vr::VRApplication_Scene);
 
@@ -1292,10 +1285,12 @@ void VRApplication::initOpenVR() {
         assert("VR failed" && false);
     }
 }
+
 void VRApplication::handleVRError(vr::EVRInitError err)
 {
     throw std::runtime_error(vr::VR_GetVRInitErrorAsEnglishDescription(err));
 }
+
 std::string VRApplication::getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError) {
     uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, nullptr, 0, peError);
     if (unRequiredBufferLen == 0) {
@@ -1309,6 +1304,7 @@ std::string VRApplication::getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIn
 
     return sResult;
 }
+
 Eigen::Matrix4f VRApplication::convertMatrix(vr::HmdMatrix34_t vrmat) {
     Eigen::Matrix4f mat;
     mat <<
@@ -1320,8 +1316,11 @@ Eigen::Matrix4f VRApplication::convertMatrix(vr::HmdMatrix34_t vrmat) {
       
 }
 
-Eigen::Matrix4f VRApplication::getEyeTransformation(int isLeft) {
+IGL_INLINE void VRApplication::updatePose() {
     vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+}
+
+Eigen::Matrix4f VRApplication::getEyeTransformation(int isLeft) {
     assert(m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid);
     const vr::HmdMatrix34_t head = m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
     vr::HmdMatrix34_t eyeFromHead;
@@ -1336,7 +1335,6 @@ Eigen::Matrix4f VRApplication::getEyeTransformation(int isLeft) {
     return res;
 
 }
-
 
 Eigen::Quaternionf VRApplication::EigenGetRotation(Eigen::Matrix4f matrix) {
     Eigen::Quaternionf q;
@@ -1364,26 +1362,195 @@ Eigen::Vector3f VRApplication::EigenGetPosition(Eigen::Matrix4f matrix) {
     return vector;
 }
 
-void VRApplication::submitToHMD() {
-    vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+IGL_INLINE void VRApplication::submitToHMD() {
+    updatePose();
 
-    vr::EColorSpace colorSpace = vr::ColorSpace_Gamma;
+    //vr::EColorSpace colorSpace = vr::ColorSpace_Gamma;
+    vr::Texture_t leftEyeTexture = { (void*)(uintptr_t)leftEyeDesc.resolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+    vr::Texture_t rightEyeTexture = { (void*)(uintptr_t)rightEyeDesc.resolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 
     //vr::Texture_t lt = { (void*)(uintptr_t)ltEyeTexture, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 
-    vr::Texture_t lt = { reinterpret_cast<void*>(intptr_t(lTexture)), vr::TextureType_OpenGL, colorSpace };
-    vr::VRCompositor()->Submit(vr::Eye_Left, &lt);
+    //vr::Texture_t lt = { reinterpret_cast<void*>(intptr_t(lTexture)), vr::TextureType_OpenGL, colorSpace };
+    vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture);
 
     //vr::Texture_t rt = { (void*)(uintptr_t)rtEyeTexture, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 
 
-    vr::Texture_t rt = { reinterpret_cast<void*>(intptr_t(rTexture)), vr::TextureType_OpenGL, colorSpace };
-    vr::VRCompositor()->Submit(vr::Eye_Right, &rt);
+    //vr::Texture_t rt = { reinterpret_cast<void*>(intptr_t(rTexture)), vr::TextureType_OpenGL, colorSpace };
+    vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture);
 
     // Tell the compositor to begin work immediately instead of waiting for the next WaitGetPoses() call
     vr::VRCompositor()->PostPresentHandoff();
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //glClearColor(0, 0, 0, 1);
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+IGL_INLINE int VRApplication::getHmdWidth() {
+    return hmdWidth;
+}
+
+IGL_INLINE int VRApplication::getHmdHeight() {
+    return hmdHeight;
+}
+
+IGL_INLINE void VRApplication::updateCompanionWindow() {
+    //companion window
+    glDisable(GL_DEPTH_TEST);
+    glViewport(0, 0, companionWindowWidth, companionWindowHeight);
+
+    glBindVertexArray(companionWindowVAO);
+    glUseProgram(companionWindowProgramID);
+
+    // render left eye (first half of index array )
+    glBindTexture(GL_TEXTURE_2D, leftEyeDesc.resolveTextureId);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glDrawElements(GL_TRIANGLES, companionWindowIndexSize / 2, GL_UNSIGNED_SHORT, 0);
+
+    // render right eye (second half of index array )
+    glBindTexture(GL_TEXTURE_2D, rightEyeDesc.resolveTextureId);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glDrawElements(GL_TRIANGLES, companionWindowIndexSize / 2, GL_UNSIGNED_SHORT, (const void*)(uintptr_t)(companionWindowIndexSize));
+
+    glBindVertexArray(0);
+    glUseProgram(0);
+}
+
+IGL_INLINE void VRApplication::initGl() {
+    if (!createFrameBuffer(leftEyeDesc)) {
+        printf("Error creating frame buffers for left eye");
+    }
+    else {
+        printf("Success creating frame buffers for left eye");
+    }
+    if (!createFrameBuffer(rightEyeDesc)) {
+        printf("Error creating frame buffers for right eye");
+    }
+    else {
+        printf("Success creating frame buffers for right eye");
+    }
+    setupCompanionWindow();
+}
+
+IGL_INLINE bool VRApplication::createFrameBuffer(FramebufferDesc& framebufferDesc) {
+    printf("Creating framebuffers\n");
+
+    printf("before init: %u", &(framebufferDesc.renderFramebufferId));
+    printf("before init: %u", &framebufferDesc.renderFramebufferId);
+
+    glGenFramebuffers(1, &framebufferDesc.renderFramebufferId);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.renderFramebufferId);
+
+    // create a multisampled color attachment texture
+    glGenTextures(1, &framebufferDesc.renderTextureId);
+    glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.renderTextureId);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA, hmdWidth, hmdHeight, GL_TRUE);
+    //glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.renderTextureId, 0);
+
+    // create a (also multisampled) renderbuffer object for depth and stencil attachments
+    glGenRenderbuffers(1, &framebufferDesc.depthBufferId);
+    glBindRenderbuffer(GL_RENDERBUFFER, framebufferDesc.depthBufferId);
+    glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, hmdWidth, hmdHeight);
+    //glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, framebufferDesc.depthBufferId);
+    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glGenFramebuffers(1, &framebufferDesc.resolveFramebufferId);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.resolveFramebufferId);
+
+    glGenTextures(1, &framebufferDesc.resolveTextureId);
+    glBindTexture(GL_TEXTURE_2D, framebufferDesc.resolveTextureId);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, hmdWidth, hmdHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.resolveTextureId, 0);
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE)
+    {
+        return false;
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    return true;
+}
+
+IGL_INLINE void VRApplication::setupCompanionWindow()
+{
+    std::vector<VertexDataWindow> vVerts;
+
+    // left eye verts
+    vVerts.push_back(VertexDataWindow(Vector2(-1, -1), Vector2(0, 1)));
+    vVerts.push_back(VertexDataWindow(Vector2(0, -1), Vector2(1, 1)));
+    vVerts.push_back(VertexDataWindow(Vector2(-1, 1), Vector2(0, 0)));
+    vVerts.push_back(VertexDataWindow(Vector2(0, 1), Vector2(1, 0)));
+
+    // right eye verts
+    vVerts.push_back(VertexDataWindow(Vector2(0, -1), Vector2(0, 1)));
+    vVerts.push_back(VertexDataWindow(Vector2(1, -1), Vector2(1, 1)));
+    vVerts.push_back(VertexDataWindow(Vector2(0, 1), Vector2(0, 0)));
+    vVerts.push_back(VertexDataWindow(Vector2(1, 1), Vector2(1, 0)));
+
+    GLushort vIndices[] = { 0, 1, 3,   0, 3, 2,   4, 5, 7,   4, 7, 6 };
+    companionWindowIndexSize = _countof(vIndices);
+
+    glGenVertexArrays(1, &companionWindowVAO);
+    glBindVertexArray(companionWindowVAO);
+
+    glGenBuffers(1, &companionWindowIDVertBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, companionWindowIDVertBuffer);
+    glBufferData(GL_ARRAY_BUFFER, vVerts.size() * sizeof(VertexDataWindow), &vVerts[0], GL_STATIC_DRAW);
+
+    glGenBuffers(1, &companionWindowIDIndexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, companionWindowIDIndexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, companionWindowIndexSize * sizeof(GLushort), &vIndices[0], GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(VertexDataWindow), (void*)offsetof(VertexDataWindow, position));
+
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexDataWindow), (void*)offsetof(VertexDataWindow, texCoord));
+
+    glBindVertexArray(0);
+
+    glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    create_shader_program(
+        // vertex shader
+        "#version 410 core\n"
+        "layout(location = 0) in vec4 position;\n"
+        "layout(location = 1) in vec2 v2UVIn;\n"
+        "noperspective out vec2 v2UV;\n"
+        "void main()\n"
+        "{\n"
+        "	v2UV = v2UVIn;\n"
+        "	gl_Position = position;\n"
+        "}\n",
+
+        // fragment shader
+        "#version 410 core\n"
+        "uniform sampler2D mytexture;\n"
+        "noperspective in vec2 v2UV;\n"
+        "out vec4 outputColor;\n"
+        "void main()\n"
+        "{\n"
+        "		outputColor = texture(mytexture, v2UV);\n"
+        "}\n"
+        , {},
+        companionWindowProgramID
+    );
 }
 
 

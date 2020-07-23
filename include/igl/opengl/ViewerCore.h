@@ -23,7 +23,33 @@ namespace igl
 namespace opengl
 {
 
+
     class VRApplication {
+
+        struct FramebufferDesc
+        {
+            unsigned int depthBufferId;
+            unsigned int renderTextureId;
+            unsigned int renderFramebufferId;
+            unsigned int resolveTextureId;
+            unsigned int resolveFramebufferId;
+        };
+
+        struct Vector2 {
+            float x;
+            float y;
+            Vector2() : x(0), y(0) {};
+            Vector2(float x, float y) : x(x), y(y) {};
+        };
+
+        struct VertexDataWindow
+        {
+            Vector2 position;
+            Vector2 texCoord;
+
+            VertexDataWindow(const Vector2& pos, const Vector2 tex) : position(pos), texCoord(tex) {	}
+        };
+
         float nearPlaneZ = 0.05f;
         float farPlaneZ = 100.0f;
         uint32_t hmdWidth = 1280, hmdHeight = 720;
@@ -43,42 +69,22 @@ namespace opengl
         Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f);
         Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f);
 
-        struct FramebufferDesc
-        {
-            GLuint depthBufferId;
-            GLuint renderTextureId;
-            GLuint renderFramebufferId;
-            GLuint resolveTextureId;
-            GLuint resolveFramebufferId;
-        };
-
         //Companion Window
         int companionWindowWidth = 640;
         int companionWindowHeight = 320;
         int companionWindowIndexSize;
         GLuint companionWindowVAO, companionWindowIDVertBuffer, companionWindowIDIndexBuffer, companionWindowProgramID;
-        IGL_INLINE bool createFrameBuffer(FramebufferDesc&);
+
+
+        IGL_INLINE bool createFrameBuffer(FramebufferDesc& framebufferDesc);
         IGL_INLINE void setupCompanionWindow();
 
-    public:
         FramebufferDesc leftEyeDesc;
         FramebufferDesc rightEyeDesc;
-
-        struct Vector2 {
-            float x;
-            float y;
-            Vector2() : x(0), y(0) {};
-            Vector2(float x, float y) : x(x), y(y) {};
-        };
-
-        struct VertexDataWindow
-        {
-            Vector2 position;
-            Vector2 texCoord;
-
-            VertexDataWindow(const Vector2& pos, const Vector2 tex) : position(pos), texCoord(tex) {	}
-        };
-
+    public:
+        IGL_INLINE void printstuff();
+        IGL_INLINE void predraw(vr::EVREye);
+        IGL_INLINE void postdraw(vr::EVREye);
         IGL_INLINE void updatePose();
         IGL_INLINE void submitToHMD();
         IGL_INLINE int getHmdWidth();

@@ -234,6 +234,8 @@ namespace glfw
     int frame_counter = 0;
     while (!glfwWindowShouldClose(window))
     {
+        printf("\nloop start\n");
+      core().VRapp.printstuff();
       double tic = get_seconds();
       draw();
       glfwSwapBuffers(window);
@@ -884,6 +886,7 @@ namespace glfw
     using namespace std;
     using namespace Eigen;
 
+
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
 
@@ -897,6 +900,8 @@ namespace glfw
       post_resize(width, height);
       highdpi=highdpi_tmp;
     }
+
+    core().VRapp.printstuff();
 
     for (auto& core : core_list)
     {
@@ -917,6 +922,8 @@ namespace glfw
         return;
       }
     }
+
+    core().VRapp.printstuff();
 
     for (auto& core : core_list)
     {
@@ -1422,13 +1429,60 @@ IGL_INLINE void VRApplication::updateCompanionWindow() {
     glUseProgram(0);
 }
 
+IGL_INLINE void VRApplication::predraw(vr::EVREye eye) {
+
+    glEnable(GL_MULTISAMPLE);
+
+    printf("\nViewer VR Draw!, eye buffer: %u\n resolved frame buffer id:%u\n", leftEyeDesc.renderFramebufferId, leftEyeDesc.resolveFramebufferId);
+
+
+    if(eye == vr::EVREye::Eye_Left)
+        glBindFramebuffer(GL_FRAMEBUFFER, leftEyeDesc.renderFramebufferId);
+    else
+        glBindFramebuffer(GL_FRAMEBUFFER, rightEyeDesc.renderFramebufferId);
+
+}
+
+IGL_INLINE void VRApplication::postdraw(vr::EVREye eye) {
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glDisable(GL_MULTISAMPLE);
+
+    if (eye == vr::EVREye::Eye_Left) {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.renderFramebufferId);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, leftEyeDesc.resolveFramebufferId);
+    }
+    else {
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.renderFramebufferId);
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rightEyeDesc.resolveFramebufferId);
+    }
+
+    glBlitFramebuffer(0, 0, hmdWidth, hmdHeight, 0, 0, hmdWidth, hmdHeight,
+        GL_COLOR_BUFFER_BIT,
+        GL_LINEAR);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    printstuff();
+}
+
+IGL_INLINE void VRApplication::printstuff() {
+    printf("after init: %u\n", leftEyeDesc.renderFramebufferId);
+}
+
 IGL_INLINE void VRApplication::initGl() {
+    leftEyeDesc = rightEyeDesc = { 0,0,0,0,0 };
+    printf("before init: %u\n", leftEyeDesc.renderFramebufferId);
+
     if (!createFrameBuffer(leftEyeDesc)) {
         printf("Error creating frame buffers for left eye");
     }
     else {
         printf("Success creating frame buffers for left eye");
     }
+
+
     if (!createFrameBuffer(rightEyeDesc)) {
         printf("Error creating frame buffers for right eye");
     }
@@ -1436,13 +1490,13 @@ IGL_INLINE void VRApplication::initGl() {
         printf("Success creating frame buffers for right eye");
     }
     setupCompanionWindow();
+
+    printf("after init: %u\n", leftEyeDesc.renderFramebufferId);
 }
 
 IGL_INLINE bool VRApplication::createFrameBuffer(FramebufferDesc& framebufferDesc) {
     printf("Creating framebuffers\n");
 
-    printf("before init: %u", &(framebufferDesc.renderFramebufferId));
-    printf("before init: %u", &framebufferDesc.renderFramebufferId);
 
     glGenFramebuffers(1, &framebufferDesc.renderFramebufferId);
     glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.renderFramebufferId);

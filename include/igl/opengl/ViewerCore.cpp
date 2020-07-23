@@ -348,48 +348,18 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     ViewerData& data,
     bool update_matrices)
 {
-    int width = VRapp.getHmdWidth();
-    int height = VRapp.getHmdHeight();
 
-    printf("Viewer VR Draw!, left eye buffer: %u\n resolved frame buffer id:%u", VRapp.leftEyeDesc.renderFramebufferId, VRapp.leftEyeDesc.resolveFramebufferId);
-    glEnable(GL_MULTISAMPLE);
-    //left eye
-    glBindFramebuffer(GL_FRAMEBUFFER, VRapp.leftEyeDesc.renderFramebufferId);
+    VRapp.printstuff();
+    VRapp.predraw(vr::EVREye::Eye_Left);
     draw(data, update_matrices);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    VRapp.postdraw(vr::EVREye::Eye_Left);
+    VRapp.printstuff();
 
-    glDisable(GL_MULTISAMPLE);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, VRapp.leftEyeDesc.renderFramebufferId);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, VRapp.leftEyeDesc.resolveFramebufferId);
-
-    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height,
-        GL_COLOR_BUFFER_BIT,
-        GL_LINEAR);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-
-    glEnable(GL_MULTISAMPLE);
-
-    printf("Viewer VR Draw!, left eye buffer: %u\n resolved frame buffer id:%u", VRapp.rightEyeDesc.renderFramebufferId, VRapp.rightEyeDesc.resolveFramebufferId);
-
-    //right eye
-    glBindFramebuffer(GL_FRAMEBUFFER, VRapp.rightEyeDesc.renderFramebufferId);
+    
+    
+    VRapp.predraw(vr::EVREye::Eye_Right);
     draw(data, update_matrices);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glDisable(GL_MULTISAMPLE);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, VRapp.rightEyeDesc.renderFramebufferId);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, VRapp.rightEyeDesc.resolveFramebufferId);
-
-    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height,
-        GL_COLOR_BUFFER_BIT,
-        GL_LINEAR);
-
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    VRapp.postdraw(vr::EVREye::Eye_Right);
 
     //VRapp.updateCompanionWindow();
 

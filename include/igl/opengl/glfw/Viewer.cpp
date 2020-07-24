@@ -1314,27 +1314,22 @@ Eigen::Matrix4f VRApplication::convertMatrix(vr::HmdMatrix34_t vrmat) {
         vrmat.m[0][2], vrmat.m[1][2], vrmat.m[2][2], 0.0,
         vrmat.m[0][3], vrmat.m[1][3], vrmat.m[2][3], 1.0f;
     return mat;
-      
 }
 
 IGL_INLINE void VRApplication::updatePose() {
     vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
 }
 
-Eigen::Matrix4f VRApplication::getEyeTransformation(int isLeft) {
+Eigen::Matrix4f VRApplication::getEyeTransformation(vr::EVREye eye) {
     assert(m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid);
     const vr::HmdMatrix34_t head = m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
     vr::HmdMatrix34_t eyeFromHead;
-    if(isLeft)
-        eyeFromHead = hmd->GetEyeToHeadTransform(vr::Eye_Left);
-    else
-        eyeFromHead = hmd->GetEyeToHeadTransform(vr::Eye_Right);
+    eyeFromHead = hmd->GetEyeToHeadTransform(eye);
     Eigen::Matrix4f temp, headMat;
     temp = convertMatrix(eyeFromHead);
     headMat = convertMatrix(head);
     Eigen::Matrix4f res = temp * headMat;
     return res;
-
 }
 
 Eigen::Quaternionf VRApplication::EigenGetRotation(Eigen::Matrix4f matrix) {
@@ -1352,11 +1347,11 @@ Eigen::Quaternionf VRApplication::EigenGetRotation(Eigen::Matrix4f matrix) {
     return q;
 }
 
-Eigen::Vector3f VRApplication::EigenGetPosition(Eigen::Matrix4f matrix) {
+Eigen::Vector3f VRApplication::GetPosition(Eigen::Matrix4f matrix) {
     Eigen::Vector3f vector;
-    vector[0] = matrix(3, 0) * -0.6;
-    vector[1] = (matrix(3, 1) - 1.2) * -0.6;
-    vector[2] = matrix(3, 2) * -0.6;
+    vector[0] = matrix(3, 0);
+    vector[1] = (matrix(3, 1) - 1.2);
+    vector[2] = matrix(3, 2);
     //printf("%.3f, %.3f, %.3f\n", vector[0], vector[1], vector[2]);
     //printf("%.3f, ", matrix.m[3][3]);
 

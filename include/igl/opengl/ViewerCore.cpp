@@ -351,12 +351,13 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     Eigen::Vector4f viewport_ori = viewport;
     viewport << 0, 0, VRapp->getHmdWidth() , VRapp->getHmdHeight();
 
+    camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Left));
     VRapp->predraw(vr::EVREye::Eye_Left);
     draw(data, update_matrices);
     VRapp->postdraw(vr::EVREye::Eye_Left);
 
     
-    
+    camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Right));
     VRapp->predraw(vr::EVREye::Eye_Right);
     draw(data, update_matrices);
     VRapp->postdraw(vr::EVREye::Eye_Right);
@@ -477,7 +478,7 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore(igl::opengl::VRApplication *VRapp
 
     depth_test = true;
 
-    is_animating = false;
+    is_animating = true;
     animation_max_fps = 120.;
 
     viewport.setZero();

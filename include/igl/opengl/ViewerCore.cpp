@@ -478,7 +478,7 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore(igl::opengl::VRApplication *VRapp
 
     depth_test = true;
 
-    is_animating = false;
+    is_animating = true;
     animation_max_fps = 120.;
 
     viewport.setZero();

@@ -234,8 +234,6 @@ namespace glfw
     int frame_counter = 0;
     while (!glfwWindowShouldClose(window))
     {
-        printf("\nloop start\n");
-      core().VRapp.printstuff();
       double tic = get_seconds();
       draw();
       glfwSwapBuffers(window);
@@ -901,7 +899,7 @@ namespace glfw
       highdpi=highdpi_tmp;
     }
 
-    core().VRapp.printstuff();
+    core_list[1].VRapp->printstuff();
 
     for (auto& core : core_list)
     {
@@ -923,7 +921,7 @@ namespace glfw
       }
     }
 
-    core().VRapp.printstuff();
+    core_list[1].VRapp->printstuff();
 
     for (auto& core : core_list)
     {
@@ -1151,9 +1149,11 @@ namespace glfw
     return core_list.back().id;
   }
 
-  IGL_INLINE int Viewer::append_vrcore(VRApplication VRapp)
+  IGL_INLINE int Viewer::append_vrcore(VRApplication* VRapp)
   {
-      core_list.push_back(ViewerCore(VRapp)); // copies the previous active core and only changes the viewport
+      core_list.emplace_back(ViewerCore(VRapp)); // copies the previous active core and only changes the viewport
+      core_list[1].VRapp->printstuff();
+      printf("\nvr?: %x\n", core_list[1].vr);
       //core_list.back().viewport = Eigen::Vector4f(i*640, 0, 640, 800);
       core_list.back().id = next_core_id;
       next_core_id <<= 1;
@@ -1162,7 +1162,7 @@ namespace glfw
           data.set_visible(true, core_list.back().id);
           data.copy_options(core(), core_list.back());
       }
-      //selected_core_index = core_list.size() - 1;
+      selected_core_index = core_list.size() - 1;
       return core_list.back().id;
   }
 
@@ -1393,6 +1393,11 @@ IGL_INLINE void VRApplication::submitToHMD() {
     //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
+IGL_INLINE void VRApplication::shut() {
+    //delete leftEyeDesc;
+    //delete rightEyeDesc;
+}
+
 IGL_INLINE int VRApplication::getHmdWidth() {
     return hmdWidth;
 }
@@ -1468,11 +1473,16 @@ IGL_INLINE void VRApplication::postdraw(vr::EVREye eye) {
 }
 
 IGL_INLINE void VRApplication::printstuff() {
-    printf("after init: %u\n", leftEyeDesc.renderFramebufferId);
+    printf("\naddres: %x\n", &leftEyeDesc);
+
+    //if(leftEyeDesc != NULL)
+        //printf("after init: %u\n", leftEyeDesc.renderFramebufferId);
 }
 
 IGL_INLINE void VRApplication::initGl() {
-    leftEyeDesc = rightEyeDesc = { 0,0,0,0,0 };
+    //leftEyeDesc = new FramebufferDesc();
+    printf("\naddres: %x\n", &leftEyeDesc);
+    //rightEyeDesc = new FramebufferDesc();
     printf("before init: %u\n", leftEyeDesc.renderFramebufferId);
 
     if (!createFrameBuffer(leftEyeDesc)) {
@@ -1491,6 +1501,7 @@ IGL_INLINE void VRApplication::initGl() {
     }
     setupCompanionWindow();
 
+    printstuff();
     printf("after init: %u\n", leftEyeDesc.renderFramebufferId);
 }
 

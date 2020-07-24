@@ -150,7 +150,7 @@ namespace glfw
     IGL_INLINE int append_core(Eigen::Vector4f viewport, bool append_empty = false);
 
 
-    IGL_INLINE int append_vrcore(VRApplication);
+    IGL_INLINE int append_vrcore(VRApplication*);
 
 
     // Erase a viewport

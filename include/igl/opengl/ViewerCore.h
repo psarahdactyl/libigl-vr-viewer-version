@@ -92,6 +92,7 @@ namespace opengl
         IGL_INLINE VRApplication();
         IGL_INLINE void initGl();
         IGL_INLINE void updateCompanionWindow();
+        IGL_INLINE void shut();
     };
 
 // Forward declaration
@@ -104,9 +105,9 @@ class ViewerCore
 public:
     bool vr = false;
 
-    VRApplication VRapp;
+    VRApplication *VRapp;
 
-    IGL_INLINE ViewerCore(VRApplication);
+    IGL_INLINE ViewerCore(VRApplication*);
 
   IGL_INLINE ViewerCore();
 

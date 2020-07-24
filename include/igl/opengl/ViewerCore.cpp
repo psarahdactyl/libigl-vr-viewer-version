@@ -349,26 +349,26 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     bool update_matrices)
 {
 
-    VRapp.printstuff();
-    VRapp.predraw(vr::EVREye::Eye_Left);
+    VRapp->printstuff();
+    VRapp->predraw(vr::EVREye::Eye_Left);
     draw(data, update_matrices);
-    VRapp.postdraw(vr::EVREye::Eye_Left);
-    VRapp.printstuff();
+    VRapp->postdraw(vr::EVREye::Eye_Left);
+    VRapp->printstuff();
 
     
     
-    VRapp.predraw(vr::EVREye::Eye_Right);
+    VRapp->predraw(vr::EVREye::Eye_Right);
     draw(data, update_matrices);
-    VRapp.postdraw(vr::EVREye::Eye_Right);
+    VRapp->postdraw(vr::EVREye::Eye_Right);
 
-    //VRapp.updateCompanionWindow();
+    //VRapp->updateCompanionWindow();
 
 
 
     //vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
     //vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture);
     //vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture);
-    VRapp.submitToHMD();
+    VRapp->submitToHMD();
 }
 
 
@@ -444,7 +444,7 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore()
   viewport.setZero();
 }
 
-IGL_INLINE igl::opengl::ViewerCore::ViewerCore(igl::opengl::VRApplication VRapp)
+IGL_INLINE igl::opengl::ViewerCore::ViewerCore(igl::opengl::VRApplication *VRapp)
 {
     vr = true;
     this->VRapp = VRapp;
@@ -480,14 +480,17 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore(igl::opengl::VRApplication VRapp)
     animation_max_fps = 120.;
 
     
-    viewport = Eigen::Vector4f(0, 0, VRapp.getHmdWidth(), VRapp.getHmdWidth());
+    viewport = Eigen::Vector4f(0, 0, VRapp->getHmdWidth(), VRapp->getHmdWidth());
+    VRapp->initGl();
+    printf("finished init gl");
+    VRapp->printstuff();
 }
 
 IGL_INLINE void igl::opengl::ViewerCore::init()
 {
-    VRapp.initGl();
 }
 
 IGL_INLINE void igl::opengl::ViewerCore::shut()
 {
+    VRapp->shut();
 }

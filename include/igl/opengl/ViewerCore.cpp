@@ -349,11 +349,9 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     bool update_matrices)
 {
 
-    VRapp->printstuff();
     VRapp->predraw(vr::EVREye::Eye_Left);
     draw(data, update_matrices);
     VRapp->postdraw(vr::EVREye::Eye_Left);
-    VRapp->printstuff();
 
     
     
@@ -361,7 +359,7 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     draw(data, update_matrices);
     VRapp->postdraw(vr::EVREye::Eye_Right);
 
-    //VRapp->updateCompanionWindow();
+    VRapp->updateCompanionWindow();
 
 
 
@@ -483,7 +481,6 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore(igl::opengl::VRApplication *VRapp
     viewport = Eigen::Vector4f(0, 0, VRapp->getHmdWidth(), VRapp->getHmdWidth());
     VRapp->initGl();
     printf("finished init gl");
-    VRapp->printstuff();
 }
 
 IGL_INLINE void igl::opengl::ViewerCore::init()

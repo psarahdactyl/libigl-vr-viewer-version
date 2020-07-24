@@ -899,8 +899,6 @@ namespace glfw
       highdpi=highdpi_tmp;
     }
 
-    core_list[1].VRapp->printstuff();
-
     for (auto& core : core_list)
     {
       core.clear_framebuffers();
@@ -920,8 +918,6 @@ namespace glfw
         return;
       }
     }
-
-    core_list[1].VRapp->printstuff();
 
     for (auto& core : core_list)
     {
@@ -1152,7 +1148,6 @@ namespace glfw
   IGL_INLINE int Viewer::append_vrcore(VRApplication* VRapp)
   {
       core_list.emplace_back(ViewerCore(VRapp)); // copies the previous active core and only changes the viewport
-      core_list[1].VRapp->printstuff();
       printf("\nvr?: %x\n", core_list[1].vr);
       //core_list.back().viewport = Eigen::Vector4f(i*640, 0, 640, 800);
       core_list.back().id = next_core_id;
@@ -1445,7 +1440,11 @@ IGL_INLINE void VRApplication::predraw(vr::EVREye eye) {
         glBindFramebuffer(GL_FRAMEBUFFER, leftEyeDesc.renderFramebufferId);
     else
         glBindFramebuffer(GL_FRAMEBUFFER, rightEyeDesc.renderFramebufferId);
-
+    glClearColor(0.3,
+        0.3,
+        0.5,
+        1.0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 IGL_INLINE void VRApplication::postdraw(vr::EVREye eye) {
@@ -1469,7 +1468,6 @@ IGL_INLINE void VRApplication::postdraw(vr::EVREye eye) {
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-    printstuff();
 }
 
 IGL_INLINE void VRApplication::printstuff() {
@@ -1480,11 +1478,6 @@ IGL_INLINE void VRApplication::printstuff() {
 }
 
 IGL_INLINE void VRApplication::initGl() {
-    //leftEyeDesc = new FramebufferDesc();
-    printf("\naddres: %x\n", &leftEyeDesc);
-    //rightEyeDesc = new FramebufferDesc();
-    printf("before init: %u\n", leftEyeDesc.renderFramebufferId);
-
     if (!createFrameBuffer(leftEyeDesc)) {
         printf("Error creating frame buffers for left eye");
     }
@@ -1500,9 +1493,6 @@ IGL_INLINE void VRApplication::initGl() {
         printf("Success creating frame buffers for right eye");
     }
     setupCompanionWindow();
-
-    printstuff();
-    printf("after init: %u\n", leftEyeDesc.renderFramebufferId);
 }
 
 IGL_INLINE bool VRApplication::createFrameBuffer(FramebufferDesc& framebufferDesc) {
@@ -1516,25 +1506,22 @@ IGL_INLINE bool VRApplication::createFrameBuffer(FramebufferDesc& framebufferDes
     glGenTextures(1, &framebufferDesc.renderTextureId);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.renderTextureId);
     glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA, hmdWidth, hmdHeight, GL_TRUE);
-    //glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.renderTextureId, 0);
 
     // create a (also multisampled) renderbuffer object for depth and stencil attachments
     glGenRenderbuffers(1, &framebufferDesc.depthBufferId);
     glBindRenderbuffer(GL_RENDERBUFFER, framebufferDesc.depthBufferId);
     glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH24_STENCIL8, hmdWidth, hmdHeight);
-    //glBindRenderbuffer(GL_RENDERBUFFER, 0);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, framebufferDesc.depthBufferId);
-    //glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     glGenFramebuffers(1, &framebufferDesc.resolveFramebufferId);
     glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.resolveFramebufferId);
 
     glGenTextures(1, &framebufferDesc.resolveTextureId);
     glBindTexture(GL_TEXTURE_2D, framebufferDesc.resolveTextureId);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, hmdWidth, hmdHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, hmdWidth, hmdHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.resolveTextureId, 0);
 
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -1544,6 +1531,8 @@ IGL_INLINE bool VRApplication::createFrameBuffer(FramebufferDesc& framebufferDes
     }
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    //glBindRenderbuffer(GL_RENDERBUFFER, 0);
+    //glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, 0);
 
     return true;
 }

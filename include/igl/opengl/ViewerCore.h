@@ -96,9 +96,7 @@ namespace opengl
         void handleVRError(vr::EVRInitError);
         void initOpenVR();
         Eigen::Matrix4f convertMatrix(vr::HmdMatrix34_t);
-        Eigen::Matrix4f getEyeTransformation(int);
         Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f);
-        Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f);
 
         //Companion Window
         int companionWindowIndexSize;
@@ -111,6 +109,8 @@ namespace opengl
         FramebufferDesc leftEyeDesc;
         FramebufferDesc rightEyeDesc;
     public:
+        IGL_INLINE Eigen::Matrix4f getEyeTransformation(vr::EVREye);
+        IGL_INLINE Eigen::Vector3f GetPosition(Eigen::Matrix4f);
         IGL_INLINE void printstuff();
         IGL_INLINE void predraw(vr::EVREye);
         IGL_INLINE void postdraw(vr::EVREye);

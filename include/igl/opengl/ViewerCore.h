@@ -70,8 +70,6 @@ namespace opengl
         Eigen::Vector3f EigenGetPosition(Eigen::Matrix4f);
 
         //Companion Window
-        int companionWindowWidth = 640;
-        int companionWindowHeight = 320;
         int companionWindowIndexSize;
         GLuint companionWindowVAO, companionWindowIDVertBuffer, companionWindowIDIndexBuffer, companionWindowProgramID;
 
@@ -91,7 +89,7 @@ namespace opengl
         IGL_INLINE int getHmdHeight();
         IGL_INLINE VRApplication();
         IGL_INLINE void initGl();
-        IGL_INLINE void updateCompanionWindow();
+        IGL_INLINE void updateCompanionWindow(Eigen::Vector4f);
         IGL_INLINE void shut();
     };
 

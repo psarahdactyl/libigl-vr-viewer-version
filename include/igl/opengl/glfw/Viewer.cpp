@@ -1145,11 +1145,10 @@ namespace glfw
     return core_list.back().id;
   }
 
-  IGL_INLINE int Viewer::append_vrcore(VRApplication* VRapp)
+  IGL_INLINE int Viewer::append_vrcore(VRApplication* VRapp, Eigen::Vector4f viewport)
   {
-      core_list.emplace_back(ViewerCore(VRapp)); // copies the previous active core and only changes the viewport
-      printf("\nvr?: %x\n", core_list[1].vr);
-      //core_list.back().viewport = Eigen::Vector4f(i*640, 0, 640, 800);
+      core_list.emplace_back(ViewerCore(VRapp));
+      core_list.back().viewport = viewport;
       core_list.back().id = next_core_id;
       next_core_id <<= 1;
       for (auto& data : data_list)
@@ -1401,10 +1400,10 @@ IGL_INLINE int VRApplication::getHmdHeight() {
     return hmdHeight;
 }
 
-IGL_INLINE void VRApplication::updateCompanionWindow() {
+IGL_INLINE void VRApplication::updateCompanionWindow(Eigen::Vector4f viewport) {
     //companion window
     glDisable(GL_DEPTH_TEST);
-    glViewport(0, 0, companionWindowWidth, companionWindowHeight);
+    glViewport(viewport(0), viewport(1), viewport(2), viewport(3));
 
     glBindVertexArray(companionWindowVAO);
     glUseProgram(companionWindowProgramID);
@@ -1432,9 +1431,6 @@ IGL_INLINE void VRApplication::updateCompanionWindow() {
 IGL_INLINE void VRApplication::predraw(vr::EVREye eye) {
 
     glEnable(GL_MULTISAMPLE);
-
-    printf("\nViewer VR Draw!, eye buffer: %u\n resolved frame buffer id:%u\n", leftEyeDesc.renderFramebufferId, leftEyeDesc.resolveFramebufferId);
-
 
     if(eye == vr::EVREye::Eye_Left)
         glBindFramebuffer(GL_FRAMEBUFFER, leftEyeDesc.renderFramebufferId);

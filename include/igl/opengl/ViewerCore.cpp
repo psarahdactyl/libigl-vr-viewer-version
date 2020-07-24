@@ -348,6 +348,8 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     ViewerData& data,
     bool update_matrices)
 {
+    Eigen::Vector4f viewport_ori = viewport;
+    viewport << 0, 0, VRapp->getHmdWidth() , VRapp->getHmdHeight();
 
     VRapp->predraw(vr::EVREye::Eye_Left);
     draw(data, update_matrices);
@@ -359,8 +361,9 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     draw(data, update_matrices);
     VRapp->postdraw(vr::EVREye::Eye_Right);
 
-    VRapp->updateCompanionWindow();
+    viewport = viewport_ori;
 
+    VRapp->updateCompanionWindow(viewport);
 
 
     //vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
@@ -477,10 +480,9 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore(igl::opengl::VRApplication *VRapp
     is_animating = false;
     animation_max_fps = 120.;
 
-    
-    viewport = Eigen::Vector4f(0, 0, VRapp->getHmdWidth(), VRapp->getHmdWidth());
+    viewport.setZero();
+    //viewport = Eigen::Vector4f(0, 0, VRapp->getHmdWidth(), VRapp->getHmdWidth());
     VRapp->initGl();
-    printf("finished init gl");
 }
 
 IGL_INLINE void igl::opengl::ViewerCore::init()

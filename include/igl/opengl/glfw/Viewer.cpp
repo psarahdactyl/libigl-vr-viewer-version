@@ -1564,10 +1564,10 @@ IGL_INLINE void VRApplication::setupCompanionWindow()
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, companionWindowIndexSize * sizeof(GLushort), &vIndices[0], GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(VertexDataWindow), (void*)offsetof(VertexDataWindow, position));
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_TRUE, sizeof(VertexDataWindow), (void*)offsetof(VertexDataWindow, position));
 
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexDataWindow), (void*)offsetof(VertexDataWindow, texCoord));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_TRUE, sizeof(VertexDataWindow), (void*)offsetof(VertexDataWindow, texCoord));
 
     glBindVertexArray(0);
 

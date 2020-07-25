@@ -156,19 +156,12 @@ IGL_INLINE void igl::opengl::ViewerCore::draw(
       float fW = fH * (double)width/(double)height;
       frustum(-fW, fW, -fH, fH, camera_dnear, camera_dfar,proj);
     }
-    printf("proj:\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n\n",
-        proj(0, 0), proj(0, 1), proj(0, 2), proj(0, 3),
-        proj(1, 0), proj(1, 1), proj(1, 2), proj(1, 3),
-        proj(2, 0), proj(2, 1), proj(2, 2), proj(2, 3),
-        proj(3, 0), proj(3, 1), proj(3, 2), proj(3, 3));
   }
 
   // Send transformations to the GPU
-
   GLint viewi  = glGetUniformLocation(data.meshgl.shader_mesh,"view");
   GLint proji  = glGetUniformLocation(data.meshgl.shader_mesh,"proj");
   GLint normi  = glGetUniformLocation(data.meshgl.shader_mesh,"normal_matrix");
-
   glUniformMatrix4fv(viewi, 1, GL_FALSE, view.data());
   glUniformMatrix4fv(proji, 1, GL_FALSE, proj.data());
   glUniformMatrix4fv(normi, 1, GL_FALSE, norm.data());
@@ -445,19 +438,19 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore()
   camera_base_zoom = 1.0f;
   camera_zoom = 1.0f;
   orthographic = false;
-  camera_view_angle = 90;
+  camera_view_angle = 45.0;
   camera_dnear = 1.0;
   camera_dfar = 100.0;
   camera_base_translation << 0, 0, 0;
   camera_translation << 0, 0, 0;
-  camera_eye << 0, 0, 0.01;
+  camera_eye << 0, 0, 5;
   camera_center << 0, 0, 0;
   camera_up << 0, 1, 0;
 
   depth_test = true;
 
   is_animating = false;
-  animation_max_fps = 90;
+  animation_max_fps = 30.;
 
   viewport.setZero();
 }

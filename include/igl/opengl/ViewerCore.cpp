@@ -363,6 +363,7 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     
     //camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Right));
     proj = VRapp->getMatrixProjectionEye(vr::EVREye::Eye_Right);
+    //calculates view of eye by multiplying the relative position of eye to head with hmd position
     view = VRapp->getMatrixPoseEye(vr::EVREye::Eye_Right) * VRapp->getMatrixPoseHmd();
     norm = view.inverse().transpose();
 

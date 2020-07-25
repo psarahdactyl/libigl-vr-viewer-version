@@ -1228,9 +1228,9 @@ IGL_INLINE void VRApplication::initOpenVR() {
     std::clog << GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String) << std::endl;
     std::clog << GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String) << std::endl;
 
-    const std::string& driver = getHMDString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
-    const std::string& model = getHMDString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_ModelNumber_String);
-    const std::string& serial = getHMDString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
+    const std::string& driver = GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
+    const std::string& model = GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_ModelNumber_String);
+    const std::string& serial = GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
     const float freq = hmd->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_DisplayFrequency_Float);
 
     //get the proper resolution of the hmd
@@ -1241,30 +1241,16 @@ IGL_INLINE void VRApplication::initOpenVR() {
     const vr::HmdMatrix34_t& ltMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Left);
     const vr::HmdMatrix34_t& rtMatrix = hmd->GetEyeToHeadTransform(vr::Eye_Right);
 
-    lEyeMat <<
-        ltMatrix.m[0][0], ltMatrix.m[0][1], ltMatrix.m[0][2], ltMatrix.m[0][3],
-        ltMatrix.m[1][0], ltMatrix.m[1][1], ltMatrix.m[1][2], ltMatrix.m[1][3],
-        ltMatrix.m[2][0], ltMatrix.m[2][1], ltMatrix.m[2][2], ltMatrix.m[2][3],
-        0.0, 0.0, 0.0, 1.0f;
-
+    lEyeMat = convertMatrix(ltMatrix);
     //lEyeMat = lEyeMat.reverse().eval();	
 
-    rEyeMat <<
-        rtMatrix.m[0][0], rtMatrix.m[0][1], rtMatrix.m[0][2], rtMatrix.m[0][3],
-        rtMatrix.m[1][0], rtMatrix.m[1][1], rtMatrix.m[1][2], rtMatrix.m[1][3],
-        rtMatrix.m[2][0], rtMatrix.m[2][1], rtMatrix.m[2][2], rtMatrix.m[2][3],
-        0.0, 0.0, 0.0, 1.0f;
-
+    rEyeMat = convertMatrix(rtMatrix);
     //rEyeMat = rEyeMat.reverse().eval();
 
     const vr::HmdMatrix44_t& rtProj = hmd->GetProjectionMatrix(vr::Eye_Right, nearPlaneZ, farPlaneZ);
     const vr::HmdMatrix44_t& ltProj = hmd->GetProjectionMatrix(vr::Eye_Left, nearPlaneZ, farPlaneZ);
 
-    lProjectionMat <<
-        ltProj.m[0][0], ltProj.m[0][1], ltProj.m[0][2], ltProj.m[0][3],
-        ltProj.m[1][0], ltProj.m[1][1], ltProj.m[1][2], ltProj.m[1][3],
-        ltProj.m[2][0], ltProj.m[2][1], ltProj.m[2][2], ltProj.m[2][3],
-        ltProj.m[3][0], ltProj.m[3][1], ltProj.m[3][2], ltProj.m[3][3];
+    lProjectionMat = convertMatrix(rtProj);
 
     printf("l projection: \n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n%.3f, %.3f, %.3f, %.3f\n\n",
         lProjectionMat(0, 0), lProjectionMat(0, 1), lProjectionMat(0, 2), lProjectionMat(0, 3),
@@ -1272,11 +1258,7 @@ IGL_INLINE void VRApplication::initOpenVR() {
         lProjectionMat(2, 0), lProjectionMat(2, 1), lProjectionMat(2, 2), lProjectionMat(2, 3),
         lProjectionMat(3, 0), lProjectionMat(3, 1), lProjectionMat(3, 2), lProjectionMat(3, 3));
 
-    rProjectionMat <<
-        rtProj.m[0][0], rtProj.m[0][1], rtProj.m[0][2], rtProj.m[0][3],
-        rtProj.m[1][0], rtProj.m[1][1], rtProj.m[1][2], rtProj.m[1][3],
-        rtProj.m[2][0], rtProj.m[2][1], rtProj.m[2][2], rtProj.m[2][3],
-        rtProj.m[3][0], rtProj.m[3][1], rtProj.m[3][2], rtProj.m[3][3];
+    rProjectionMat = convertMatrix(ltProj);
 
     // Initialize the compositor
     vr::IVRCompositor* compositor = vr::VRCompositor();
@@ -1292,19 +1274,6 @@ void VRApplication::handleVRError(vr::EVRInitError err)
     throw std::runtime_error(vr::VR_GetVRInitErrorAsEnglishDescription(err));
 }
 
-std::string VRApplication::getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError* peError) {
-    uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, nullptr, 0, peError);
-    if (unRequiredBufferLen == 0) {
-        return "";
-    }
-
-    char* pchBuffer = new char[unRequiredBufferLen];
-    unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty(unDevice, prop, pchBuffer, unRequiredBufferLen, peError);
-    std::string sResult = pchBuffer;
-    delete[] pchBuffer;
-
-    return sResult;
-}
 
 Eigen::Matrix4f VRApplication::convertMatrix(vr::HmdMatrix34_t vrmat) {
     Eigen::Matrix4f mat;

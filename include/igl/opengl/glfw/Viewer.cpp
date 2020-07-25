@@ -1439,8 +1439,34 @@ IGL_INLINE void VRApplication::submitToHMD() {
 }
 
 IGL_INLINE void VRApplication::shut() {
+    if (hmd) {
+        vr::VR_Shutdown();
+        hmd = NULL;
+    }
+    if (companionWindowProgramID)
+    {
+        glDeleteProgram(companionWindowProgramID);
+    }
+
     //delete leftEyeDesc;
+    glDeleteRenderbuffers(1, &leftEyeDesc.depthBufferId);
+    glDeleteTextures(1, &leftEyeDesc.renderTextureId);
+    glDeleteFramebuffers(1, &leftEyeDesc.renderFramebufferId);
+    glDeleteTextures(1, &leftEyeDesc.resolveTextureId);
+    glDeleteFramebuffers(1, &leftEyeDesc.resolveFramebufferId);
+
     //delete rightEyeDesc;
+    glDeleteRenderbuffers(1, &rightEyeDesc.depthBufferId);
+    glDeleteTextures(1, &rightEyeDesc.renderTextureId);
+    glDeleteFramebuffers(1, &rightEyeDesc.renderFramebufferId);
+    glDeleteTextures(1, &rightEyeDesc.resolveTextureId);
+    glDeleteFramebuffers(1, &rightEyeDesc.resolveFramebufferId);
+
+    if (companionWindowVAO != 0)
+    {
+        glDeleteVertexArrays(1, &companionWindowVAO);
+    }
+
 }
 
 IGL_INLINE int VRApplication::getHmdWidth() {

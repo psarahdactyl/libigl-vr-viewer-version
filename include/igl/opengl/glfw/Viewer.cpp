@@ -1257,8 +1257,8 @@ IGL_INLINE void VRApplication::initOpenVR() {
 
     //rEyeMat = rEyeMat.reverse().eval();
 
-    const vr::HmdMatrix44_t& ltProj = hmd->GetProjectionMatrix(vr::Eye_Left, -nearPlaneZ, -farPlaneZ);
-    const vr::HmdMatrix44_t& rtProj = hmd->GetProjectionMatrix(vr::Eye_Right, -nearPlaneZ, -farPlaneZ);
+    const vr::HmdMatrix44_t& rtProj = hmd->GetProjectionMatrix(vr::Eye_Right, nearPlaneZ, farPlaneZ);
+    const vr::HmdMatrix44_t& ltProj = hmd->GetProjectionMatrix(vr::Eye_Left, nearPlaneZ, farPlaneZ);
 
     lProjectionMat <<
         ltProj.m[0][0], ltProj.m[0][1], ltProj.m[0][2], ltProj.m[0][3],
@@ -1309,30 +1309,86 @@ std::string VRApplication::getHMDString(vr::IVRSystem* pHmd, vr::TrackedDeviceIn
 Eigen::Matrix4f VRApplication::convertMatrix(vr::HmdMatrix34_t vrmat) {
     Eigen::Matrix4f mat;
     mat <<
-        vrmat.m[0][0], vrmat.m[1][0], vrmat.m[2][0], 0.0,
-        vrmat.m[0][1], vrmat.m[1][1], vrmat.m[2][1], 0.0,
-        vrmat.m[0][2], vrmat.m[1][2], vrmat.m[2][2], 0.0,
-        vrmat.m[0][3], vrmat.m[1][3], vrmat.m[2][3], 1.0f;
+        vrmat.m[0][0], vrmat.m[0][1], vrmat.m[0][2], vrmat.m[0][3],
+        vrmat.m[1][0], vrmat.m[1][1], vrmat.m[1][2], vrmat.m[1][3],
+        vrmat.m[2][0], vrmat.m[2][1], vrmat.m[2][2], vrmat.m[2][3],
+        0.0, 0.0, 0.0, 1.0f;
+
+    //mat <<
+    //    vrmat.m[0][0], vrmat.m[1][0], vrmat.m[2][0], 0.0,
+    //    vrmat.m[0][1], vrmat.m[1][1], vrmat.m[2][1], 0.0,
+    //    vrmat.m[0][2], vrmat.m[1][2], vrmat.m[2][2], 0.0,
+    //    vrmat.m[0][3], vrmat.m[1][3], vrmat.m[2][3], 1.0f;
+    return mat;
+}
+
+Eigen::Matrix4f VRApplication::convertMatrix(vr::HmdMatrix44_t vrmat) {
+    Eigen::Matrix4f mat;
+    mat <<
+        vrmat.m[0][0], vrmat.m[0][1], vrmat.m[0][2], vrmat.m[0][3],
+        vrmat.m[1][0], vrmat.m[1][1], vrmat.m[1][2], vrmat.m[1][3],
+        vrmat.m[2][0], vrmat.m[2][1], vrmat.m[2][2], vrmat.m[2][3],
+        vrmat.m[3][0], vrmat.m[3][1], vrmat.m[3][2], vrmat.m[3][3];
+
     return mat;
 }
 
 IGL_INLINE void VRApplication::updatePose() {
-    vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+    vr::VRCompositor()->WaitGetPoses(trackedDevicePose, vr::k_unMaxTrackedDeviceCount, nullptr, 0);
+
+    validPoseCount = 0;
+    //m_strPoseClasses = "";
+    for (int nDevice = 0; nDevice < vr::k_unMaxTrackedDeviceCount; ++nDevice)
+    {
+        if (trackedDevicePose[nDevice].bPoseIsValid)
+        {
+            validPoseCount++;
+            mat4DevicePose[nDevice] = convertMatrix(trackedDevicePose[nDevice].mDeviceToAbsoluteTracking);
+            if (m_rDevClassChar[nDevice] == 0)
+            {
+                switch (hmd->GetTrackedDeviceClass(nDevice))
+                {
+                case vr::TrackedDeviceClass_Controller:        m_rDevClassChar[nDevice] = 'C'; break;
+                case vr::TrackedDeviceClass_HMD:               m_rDevClassChar[nDevice] = 'H'; break;
+                case vr::TrackedDeviceClass_Invalid:           m_rDevClassChar[nDevice] = 'I'; break;
+                case vr::TrackedDeviceClass_GenericTracker:    m_rDevClassChar[nDevice] = 'G'; break;
+                case vr::TrackedDeviceClass_TrackingReference: m_rDevClassChar[nDevice] = 'T'; break;
+                default:                                       m_rDevClassChar[nDevice] = '?'; break;
+                }
+            }
+            //m_strPoseClasses += m_rDevClassChar[nDevice];
+        }
+    }
+
+    if (trackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid)
+    {
+        hmdPose = mat4DevicePose[vr::k_unTrackedDeviceIndex_Hmd];
+        hmdPose = hmdPose.inverse().eval();
+    }
 }
 
-Eigen::Matrix4f VRApplication::getEyeTransformation(vr::EVREye eye) {
-    assert(m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid);
-    const vr::HmdMatrix34_t head = m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
-    vr::HmdMatrix34_t eyeFromHead;
-    eyeFromHead = hmd->GetEyeToHeadTransform(eye);
-    Eigen::Matrix4f temp, headMat;
-    temp = convertMatrix(eyeFromHead);
-    headMat = convertMatrix(head);
-    Eigen::Matrix4f res = temp * headMat;
-    return res;
+IGL_INLINE Eigen::Matrix4f VRApplication::getMatrixPoseHmd() {
+    return hmdPose;
 }
 
-Eigen::Quaternionf VRApplication::EigenGetRotation(Eigen::Matrix4f matrix) {
+IGL_INLINE Eigen::Matrix4f VRApplication::getMatrixProjectionEye(vr::EVREye eye) {
+    return convertMatrix(hmd->GetProjectionMatrix(eye, nearPlaneZ, farPlaneZ));
+}
+
+IGL_INLINE Eigen::Matrix4f VRApplication::getMatrixPoseEye(vr::EVREye eye) {
+    return convertMatrix(hmd->GetEyeToHeadTransform(eye)).inverse().eval();
+
+    //const vr::HmdMatrix34_t head = m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].mDeviceToAbsoluteTracking;
+    //vr::HmdMatrix34_t eyeFromHead;
+    //eyeFromHead = hmd->GetEyeToHeadTransform(eye);
+    //Eigen::Matrix4f temp, headMat;
+    //temp = convertMatrix(eyeFromHead);
+    //headMat = convertMatrix(head);
+    //Eigen::Matrix4f res = temp * headMat;
+    //return res;
+}
+
+IGL_INLINE Eigen::Quaternionf VRApplication::EigenGetRotation(Eigen::Matrix4f matrix) {
     Eigen::Quaternionf q;
 
     q.w() = sqrt(fmax(0, 1 + matrix(0, 0) + matrix(1, 1) + matrix(2, 2))) / 2;
@@ -1347,7 +1403,7 @@ Eigen::Quaternionf VRApplication::EigenGetRotation(Eigen::Matrix4f matrix) {
     return q;
 }
 
-Eigen::Vector3f VRApplication::GetPosition(Eigen::Matrix4f matrix) {
+IGL_INLINE Eigen::Vector3f VRApplication::GetPosition(Eigen::Matrix4f matrix) {
     Eigen::Vector3f vector;
     vector[0] = matrix(3, 0);
     vector[1] = (matrix(3, 1) - 1.2);
@@ -1431,7 +1487,7 @@ IGL_INLINE void VRApplication::predraw(vr::EVREye eye) {
         glBindFramebuffer(GL_FRAMEBUFFER, leftEyeDesc.renderFramebufferId);
     else
         glBindFramebuffer(GL_FRAMEBUFFER, rightEyeDesc.renderFramebufferId);
-    glClearColor((int)eye * 0.3,
+    glClearColor(0.3,
         0.3,
         0.5,
         1.0);

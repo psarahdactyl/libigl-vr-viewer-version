@@ -345,21 +345,29 @@ IGL_INLINE void igl::opengl::ViewerCore::draw_buffer(ViewerData& data,
 }
 
 IGL_INLINE void igl::opengl::ViewerCore::drawVR(
-    ViewerData& data,
-    bool update_matrices)
+    ViewerData& data)
 {
     Eigen::Vector4f viewport_ori = viewport;
     viewport << 0, 0, VRapp->getHmdWidth() , VRapp->getHmdHeight();
 
-    camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Left));
+
+    //camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Left));
+    proj = VRapp->getMatrixProjectionEye(vr::EVREye::Eye_Left);
+    view = VRapp->getMatrixPoseEye(vr::EVREye::Eye_Left) * VRapp->getMatrixPoseHmd();
+    norm = view.inverse().transpose();
+
     VRapp->predraw(vr::EVREye::Eye_Left);
-    draw(data, update_matrices);
+    draw(data, false);
     VRapp->postdraw(vr::EVREye::Eye_Left);
 
     
-    camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Right));
+    //camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Right));
+    proj = VRapp->getMatrixProjectionEye(vr::EVREye::Eye_Right);
+    view = VRapp->getMatrixPoseEye(vr::EVREye::Eye_Right) * VRapp->getMatrixPoseHmd();
+    norm = view.inverse().transpose();
+
     VRapp->predraw(vr::EVREye::Eye_Right);
-    draw(data, update_matrices);
+    draw(data, false);
     VRapp->postdraw(vr::EVREye::Eye_Right);
 
     viewport = viewport_ori;

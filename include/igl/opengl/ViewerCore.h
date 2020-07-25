@@ -81,12 +81,17 @@ namespace opengl
             VertexDataWindow(const Vector2& pos, const Vector2 tex) : position(pos), texCoord(tex) {	}
         };
 
-        float nearPlaneZ = 0.05f;
-        float farPlaneZ = 100.0f;
-        uint32_t hmdWidth = 1280, hmdHeight = 720;
-        Eigen::Matrix4f lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
-        GLuint lTexture, rTexture;
-        vr::TrackedDevicePose_t m_rTrackedDevicePose[vr::k_unMaxTrackedDeviceCount];
+        vr::TrackedDevicePose_t trackedDevicePose[vr::k_unMaxTrackedDeviceCount];
+        Eigen::Matrix4f mat4DevicePose[vr::k_unMaxTrackedDeviceCount];
+        char m_rDevClassChar[vr::k_unMaxTrackedDeviceCount];   // for each device, a character representing its class
+        int validPoseCount;
+
+        Eigen::Matrix4f hmdPose, lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
+
+
+        Eigen::Matrix4f convertMatrix(vr::HmdMatrix34_t);
+        Eigen::Matrix4f convertMatrix(vr::HmdMatrix44_t);
+
 
         std::string GetTrackedDeviceString(vr::IVRSystem*, vr::TrackedDeviceIndex_t, vr::TrackedDeviceProperty, vr::TrackedPropertyError* peError = NULL);
         std::string GetTrackedDeviceClassString(vr::ETrackedDeviceClass td_class);
@@ -95,22 +100,30 @@ namespace opengl
         vr::IVRSystem* hmd = nullptr;
         void handleVRError(vr::EVRInitError);
         void initOpenVR();
-        Eigen::Matrix4f convertMatrix(vr::HmdMatrix34_t);
-        Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f);
 
-        //Companion Window
+
+
         int companionWindowIndexSize;
         GLuint companionWindowVAO, companionWindowIDVertBuffer, companionWindowIDIndexBuffer, companionWindowProgramID;
-
 
         IGL_INLINE bool createFrameBuffer(FramebufferDesc& framebufferDesc);
         IGL_INLINE void setupCompanionWindow();
 
+        float nearPlaneZ = 0.05f;
+        float farPlaneZ = 100.0f;
+        uint32_t hmdWidth = 1280, hmdHeight = 720;
+        GLuint lTexture, rTexture;
+
         FramebufferDesc leftEyeDesc;
         FramebufferDesc rightEyeDesc;
     public:
-        IGL_INLINE Eigen::Matrix4f getEyeTransformation(vr::EVREye);
+        IGL_INLINE Eigen::Matrix4f getMatrixPoseEye(vr::EVREye);
+        IGL_INLINE Eigen::Matrix4f getMatrixProjectionEye(vr::EVREye);
+        IGL_INLINE Eigen::Matrix4f getMatrixPoseHmd();
+
         IGL_INLINE Eigen::Vector3f GetPosition(Eigen::Matrix4f);
+        IGL_INLINE Eigen::Quaternionf EigenGetRotation(Eigen::Matrix4f);
+
         IGL_INLINE void printstuff();
         IGL_INLINE void predraw(vr::EVREye);
         IGL_INLINE void postdraw(vr::EVREye);
@@ -183,7 +196,7 @@ public:
   // Draw everything
   //
   // data cannot be const because it is being set to "clean"
-  IGL_INLINE void drawVR(ViewerData& data, bool update_matrices = true);
+  IGL_INLINE void drawVR(ViewerData& data);
   IGL_INLINE void draw(ViewerData& data, bool update_matrices = true);
   IGL_INLINE void draw_buffer(
     ViewerData& data,

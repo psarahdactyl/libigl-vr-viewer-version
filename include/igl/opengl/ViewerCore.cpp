@@ -179,6 +179,8 @@ IGL_INLINE void igl::opengl::ViewerCore::draw(
   GLint lighting_factori      = glGetUniformLocation(data.meshgl.shader_mesh,"lighting_factor");
   GLint fixed_colori          = glGetUniformLocation(data.meshgl.shader_mesh,"fixed_color");
   GLint texture_factori       = glGetUniformLocation(data.meshgl.shader_mesh,"texture_factor");
+  GLint matcap_factori        = glGetUniformLocation(data.meshgl.shader_mesh,"matcap_factor");
+  GLint double_sidedi         = glGetUniformLocation(data.meshgl.shader_mesh,"double_sided");
 
   glUniform1f(specular_exponenti, data.shininess);
   glUniform3fv(light_position_eyei, 1, light_position.data());
@@ -192,7 +194,10 @@ IGL_INLINE void igl::opengl::ViewerCore::draw(
     {
       // Texture
       glUniform1f(texture_factori, is_set(data.show_texture) ? 1.0f : 0.0f);
+      glUniform1f(matcap_factori, is_set(data.use_matcap) ? 1.0f : 0.0f);
+      glUniform1f(double_sidedi, data.double_sided ? 1.0f : 0.0f);
       data.meshgl.draw_mesh(true);
+      glUniform1f(matcap_factori, 0.0f);
       glUniform1f(texture_factori, 0.0f);
     }
 
@@ -346,6 +351,45 @@ IGL_INLINE void igl::opengl::ViewerCore::draw_buffer(ViewerData& data,
   free(pixels);
 }
 
+IGL_INLINE void igl::opengl::ViewerCore::drawVR(
+    ViewerData& data)
+{
+    Eigen::Vector4f viewport_ori = viewport;
+    viewport << 0, 0, VRapp->getHmdWidth() , VRapp->getHmdHeight();
+
+
+    //camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Left));
+    proj = VRapp->getMatrixProjectionEye(vr::EVREye::Eye_Left);
+    view = VRapp->getMatrixPoseEye(vr::EVREye::Eye_Left) * VRapp->getMatrixPoseHmd();
+    norm = view.inverse().transpose();
+
+    VRapp->predraw(vr::EVREye::Eye_Left);
+    draw(data, false);
+    VRapp->postdraw(vr::EVREye::Eye_Left);
+
+    
+    //camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Right));
+    proj = VRapp->getMatrixProjectionEye(vr::EVREye::Eye_Right);
+    //calculates view of eye by multiplying the relative position of eye to head with hmd position
+    view = VRapp->getMatrixPoseEye(vr::EVREye::Eye_Right) * VRapp->getMatrixPoseHmd();
+    norm = view.inverse().transpose();
+
+    VRapp->predraw(vr::EVREye::Eye_Right);
+    draw(data, false);
+    VRapp->postdraw(vr::EVREye::Eye_Right);
+
+    viewport = viewport_ori;
+
+    VRapp->updateCompanionWindow(viewport);
+
+
+    //vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+    //vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture);
+    //vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture);
+    VRapp->submitToHMD();
+}
+
+
 IGL_INLINE void igl::opengl::ViewerCore::set_rotation_type(
   const igl::opengl::ViewerCore::RotationType & value)
 {
@@ -394,6 +438,7 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore()
 
   // Default trackball
   trackball_angle = Eigen::Quaternionf::Identity();
+  rotation_type = ViewerCore::ROTATION_TYPE_TRACKBALL;
   set_rotation_type(ViewerCore::ROTATION_TYPE_TWO_AXIS_VALUATOR_FIXED_UP);
 
   // Camera parameters
@@ -417,10 +462,51 @@ IGL_INLINE igl::opengl::ViewerCore::ViewerCore()
   viewport.setZero();
 }
 
+IGL_INLINE igl::opengl::ViewerCore::ViewerCore(igl::opengl::VRApplication *VRapp)
+{
+    vr = true;
+    this->VRapp = VRapp;
+    // Default colors
+    // Different background color based on eyes for easier debugging
+    background_color << 0.0f, 0.3f, 0.5f, 1.0f;
+
+    // Default lights settings
+    light_position << 0.0f, 0.3f, 0.0f;
+    lighting_factor = 1.0f; //on
+
+    // Default trackball
+    trackball_angle = Eigen::Quaternionf::Identity();
+    rotation_type = ViewerCore::ROTATION_TYPE_TRACKBALL;
+    set_rotation_type(ViewerCore::ROTATION_TYPE_TWO_AXIS_VALUATOR_FIXED_UP);
+
+    // Camera parameters
+    camera_base_zoom = 1.0f;
+    camera_zoom = 1.0f;
+    orthographic = false;
+    camera_view_angle = 45.0;
+    camera_dnear = 1.0;
+    camera_dfar = 100.0;
+    camera_base_translation << 0, 0, 0;
+    camera_translation << 0, 0, 0;
+    camera_eye << 0, 0, 5;
+    camera_center << 0, 0, 0;
+    camera_up << 0, 1, 0;
+
+    depth_test = true;
+
+    is_animating = true;
+    animation_max_fps = 120.;
+
+    viewport.setZero();
+    //viewport = Eigen::Vector4f(0, 0, VRapp->getHmdWidth(), VRapp->getHmdWidth());
+    VRapp->initGl();
+}
+
 IGL_INLINE void igl::opengl::ViewerCore::init()
 {
 }
 
 IGL_INLINE void igl::opengl::ViewerCore::shut()
 {
+    VRapp->shut();
 }

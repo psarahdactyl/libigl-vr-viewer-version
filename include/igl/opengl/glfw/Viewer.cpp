@@ -1551,14 +1551,13 @@ IGL_INLINE void VRApplication::initGl() {
         "#version 410\n"
         "uniform mat4 view;\n"
         "uniform mat4 proj;\n"
-        "uniform mat4 normal_matrix;\n"
-        "layout(location = 0) in vec4 position;\n"
+        "layout(location = 0) in vec3 position;\n"
         "layout(location = 1) in vec3 v3ColorIn;\n"
         "out vec3 position_eye;\n"
         "out vec4 v4Color;\n"
         "void main()\n"
         "{\n"
-        "   position_eye = vec3 (view * position);\n"
+        "   position_eye = vec3 (view * vec4(position, 1.0));\n"
         "	gl_Position = proj * vec4(position_eye, 1.0);\n"
         "	v4Color.xyz = v3ColorIn;\n"
         "	v4Color.a = 1.0;\n"
@@ -1694,7 +1693,7 @@ IGL_INLINE void VRApplication::setupCompanionWindow()
     );
 }
 
-IGL_INLINE void VRApplication::drawControllerAxes(Eigen::Matrix4f view, Eigen::Matrix4f proj, Eigen::Matrix4f norm ) {
+IGL_INLINE void VRApplication::drawControllerAxes(Eigen::Matrix4f view, Eigen::Matrix4f proj) {
     if (!hmd->IsInputAvailable())
         return;
     // draw the controller axis lines
@@ -1703,10 +1702,8 @@ IGL_INLINE void VRApplication::drawControllerAxes(Eigen::Matrix4f view, Eigen::M
     // Send transformations to the GPU
     GLint viewi = glGetUniformLocation(controllerTransformProgramID, "view");
     GLint proji = glGetUniformLocation(controllerTransformProgramID, "proj");
-    GLint normi = glGetUniformLocation(controllerTransformProgramID, "normal_matrix");
     glUniformMatrix4fv(viewi, 1, GL_FALSE, view.data());
     glUniformMatrix4fv(proji, 1, GL_FALSE, proj.data());
-    glUniformMatrix4fv(normi, 1, GL_FALSE, norm.data());
 
     //glUniformMatrix4fv(controllerMatrixLocation, 1, GL_FALSE, viewProjectionMatrix.data());
     glBindVertexArray(controllerVAO);
@@ -1766,6 +1763,7 @@ IGL_INLINE void VRApplication::renderControllerAxes() {
         vertdataarray.push_back(color(0)); vertdataarray.push_back(color(1)); vertdataarray.push_back(color(2));
         controllerVertCount += 2;
     }
+
     // Setup the VAO the first time through.
     if (controllerVAO == 0)
     {

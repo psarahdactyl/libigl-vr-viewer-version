@@ -1552,15 +1552,16 @@ IGL_INLINE void VRApplication::initGl() {
         "uniform mat4 view;\n"
         "uniform mat4 proj;\n"
         "uniform mat4 normal_matrix;\n"
+        "layout(location = 0) in vec4 position;\n"
+        "layout(location = 1) in vec3 v3ColorIn;\n"
         "out vec3 position_eye;\n"
-        "in vec3 position;\n"
-        "in vec3 v3ColorIn;\n"
         "out vec4 v4Color;\n"
         "void main()\n"
         "{\n"
-        "   position_eye = vec3 (view * vec4 (position, 1.0));\n"
+        "   position_eye = vec3 (view * position);\n"
         "	gl_Position = proj * vec4(position_eye, 1.0);\n"
-        "	v4Color = vec4(255.0 , 0.0 , 0.0 , 1.0);\n"
+        "	v4Color.xyz = v3ColorIn;\n"
+        "	v4Color.a = 1.0;\n"
         "}\n",
 
         // fragment shader
@@ -1729,7 +1730,7 @@ IGL_INLINE void VRApplication::renderControllerAxes() {
 
         Eigen::Matrix4f & mat = m_rHand[eHand].m_rmat4Pose;
         Eigen::Vector4f center = mat * Eigen::Vector4f(0, 0, 0, 1);
-        
+
         for (int i = 0; i < 3; ++i) {
             Eigen::Vector3f color(0, 0, 0);
             Eigen::Vector4f point(0, 0, 0, 1);

@@ -243,10 +243,10 @@ namespace glfw
         // In microseconds
         double duration = 1000000.*(get_seconds()-tic);
         const double min_duration = 1000000./core().animation_max_fps;
-        if(duration<min_duration)
+        /*if(duration<min_duration)
         {
           std::this_thread::sleep_for(std::chrono::microseconds((int)(min_duration-duration)));
-        }
+        }*/
       }
       else
       {
@@ -1259,7 +1259,13 @@ IGL_INLINE void VRApplication::initOpenVR() {
         lProjectionMat(3, 0), lProjectionMat(3, 1), lProjectionMat(3, 2), lProjectionMat(3, 3));
 
     rProjectionMat = convertMatrix(ltProj);
+    vr::VRInput()->GetActionHandle("/actions/demo/out/Haptic_Left", &m_rHand[Left].m_actionHaptic);
+    vr::VRInput()->GetInputSourceHandle("/user/hand/left", &m_rHand[Left].m_source);
+    vr::VRInput()->GetActionHandle("/actions/demo/in/Hand_Left", &m_rHand[Left].m_actionPose);
 
+    vr::VRInput()->GetActionHandle("/actions/demo/out/Haptic_Right", &m_rHand[Right].m_actionHaptic);
+    vr::VRInput()->GetInputSourceHandle("/user/hand/right", &m_rHand[Right].m_source);
+    vr::VRInput()->GetActionHandle("/actions/demo/in/Hand_Right", &m_rHand[Right].m_actionPose);
     // Initialize the compositor
     vr::IVRCompositor* compositor = vr::VRCompositor();
     if (!compositor) {
@@ -1648,7 +1654,139 @@ IGL_INLINE void VRApplication::setupCompanionWindow()
         companionWindowProgramID
     );
 }
+IGL_INLINE void VRApplication::renderControllerAxes() {
+    if (!hmd->IsInputAvailable())
+        return;
 
+    std::vector<float> vertdataarray;
+
+    controllerVertCount = 0;
+    trackedControllerCount = 0;
+
+    for (EHand eHand = Left; eHand <= Right; ((int&)eHand)++)
+    {
+        if (!m_rHand[eHand].m_bShowController)
+            continue;
+
+        Eigen::Matrix4f & mat = m_rHand[eHand].m_rmat4Pose;
+        Eigen::Vector4f center = mat * Eigen::Vector4f(0, 0, 0, 1);
+        
+        for (int i = 0; i < 3; ++i) {
+            Eigen::Vector3f color(0, 0, 0);
+            Eigen::Vector4f point(0, 0, 0, 1);
+            point[i] += 0.05f;
+            color[i] = 1.0;
+            point = mat * point;
+            vertdataarray.push_back(center(0));
+            vertdataarray.push_back(center(1));
+            vertdataarray.push_back(center(2));
+
+            vertdataarray.push_back(color(0));
+            vertdataarray.push_back(color(1));
+            vertdataarray.push_back(color(2));
+
+            vertdataarray.push_back(point(0));
+            vertdataarray.push_back(point(1));
+            vertdataarray.push_back(point(2));
+
+            vertdataarray.push_back(color(0));
+            vertdataarray.push_back(color(1));
+            vertdataarray.push_back(color(2));
+
+            controllerVertCount += 2;
+            
+        }
+        Eigen::Vector4f start = mat * Eigen::Vector4f(0, 0, -0.02f, 1);
+        Eigen::Vector4f end = mat * Eigen::Vector4f(0, 0, -39.f, 1);
+        Eigen::Vector3f color(.92f, .92f, .71f);
+        vertdataarray.push_back(start(0)); vertdataarray.push_back(start(1)); vertdataarray.push_back(start(2));
+        vertdataarray.push_back(color(0)); vertdataarray.push_back(color(1)); vertdataarray.push_back(color(2));
+
+        vertdataarray.push_back(end(0)); vertdataarray.push_back(end(1)); vertdataarray.push_back(end(2));
+        vertdataarray.push_back(color(0)); vertdataarray.push_back(color(1)); vertdataarray.push_back(color(2));
+        controllerVertCount += 2;
+
+
+
+
+    }
+    // Setup the VAO the first time through.
+    if (controllerVAO == 0)
+    {
+        glGenVertexArrays(1, &controllerVAO);
+        glBindVertexArray(controllerVAO);
+
+        glGenBuffers(1, &controllerVertBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, controllerVertBuffer);
+
+        GLuint stride = 2 * 3 * sizeof(float);
+        uintptr_t offset = 0;
+
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const void*)offset);
+
+        offset += sizeof(Eigen::Vector3f);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (const void*)offset);
+
+        glBindVertexArray(0);
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, controllerVertBuffer);
+
+    // set vertex data if we have some
+    if (vertdataarray.size() > 0)
+    {
+        //$ TODO: Use glBufferSubData for this...
+        glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertdataarray.size(), &vertdataarray[0], GL_STREAM_DRAW);
+    }
+
+}
+
+IGL_INLINE void VRApplication::handleInput() {
+    // Process SteamVR events
+    //vr::VREvent_t event;
+    //while (hmd->PollNextEvent(&event, sizeof(event)))
+    //{
+    //    ProcessVREvent(event);
+    //}
+
+    //// Process SteamVR action state
+    //// UpdateActionState is called each frame to update the state of the actions themselves. The application
+    //// controls which action sets are active with the provided array of VRActiveActionSet_t structs.
+    //vr::VRActiveActionSet_t actionSet = { 0 };
+    //actionSet.ulActionSet = m_actionsetDemo;
+    //vr::VRInput()->UpdateActionState(&actionSet, sizeof(actionSet), 1);
+
+
+   
+
+    for (EHand eHand = Left; eHand <= Right; ((int&)eHand)++)
+    {
+        vr::InputPoseActionData_t poseData;
+        if (vr::VRInput()->GetPoseActionDataForNextFrame(m_rHand[eHand].m_actionPose, vr::TrackingUniverseStanding, &poseData, sizeof(poseData), vr::k_ulInvalidInputValueHandle) != vr::VRInputError_None
+            || !poseData.bActive || !poseData.pose.bPoseIsValid)
+        {
+            m_rHand[eHand].m_bShowController = false;
+        }
+        else
+        {
+            m_rHand[eHand].m_rmat4Pose = convertMatrix(poseData.pose.mDeviceToAbsoluteTracking);
+
+            vr::InputOriginInfo_t originInfo;
+            if (vr::VRInput()->GetOriginTrackedDeviceInfo(poseData.activeOrigin, &originInfo, sizeof(originInfo)) == vr::VRInputError_None
+                && originInfo.trackedDeviceIndex != vr::k_unTrackedDeviceIndexInvalid)
+            {
+                std::string sRenderModelName = GetTrackedDeviceString(hmd, originInfo.trackedDeviceIndex, vr::Prop_RenderModelName_String);
+                if (sRenderModelName != m_rHand[eHand].m_sRenderModelName)
+                {
+                    m_rHand[eHand].m_sRenderModelName = sRenderModelName;
+                }
+            }
+        }
+    }
+
+}
 
 } // end namespace
 

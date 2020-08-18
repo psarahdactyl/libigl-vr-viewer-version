@@ -10,6 +10,7 @@
 
 #include <igl/opengl/MeshGL.h>
 
+
 #include <igl/igl_inline.h>
 #include <Eigen/Geometry>
 #include <Eigen/Core>
@@ -84,7 +85,7 @@ namespace opengl
         vr::TrackedDevicePose_t trackedDevicePose[vr::k_unMaxTrackedDeviceCount];
         Eigen::Matrix4f mat4DevicePose[vr::k_unMaxTrackedDeviceCount];
         char m_rDevClassChar[vr::k_unMaxTrackedDeviceCount];   // for each device, a character representing its class
-        int validPoseCount;
+        int validPoseCount; unsigned int controllerVertCount, trackedControllerCount;
 
         Eigen::Matrix4f hmdPose, lEyeMat, rEyeMat, lProjectionMat, rProjectionMat;
 
@@ -100,6 +101,27 @@ namespace opengl
         vr::IVRSystem* hmd = nullptr;
         void handleVRError(vr::EVRInitError);
         void initOpenVR();
+
+        GLuint controllerVertBuffer;
+        GLuint controllerVAO;
+        struct ControllerInfo_t
+        {
+            vr::VRInputValueHandle_t m_source = vr::k_ulInvalidInputValueHandle;
+            vr::VRActionHandle_t m_actionPose = vr::k_ulInvalidActionHandle;
+            vr::VRActionHandle_t m_actionHaptic = vr::k_ulInvalidActionHandle;
+            Eigen::Matrix4f m_rmat4Pose;
+            //ViewerData m_pRenderModel;
+            std::string m_sRenderModelName;
+            bool m_bShowController;
+        };
+        enum EHand
+        {
+            Left = 0,
+            Right = 1,
+        };
+        ControllerInfo_t m_rHand[2];
+
+
 
 
 
@@ -135,6 +157,8 @@ namespace opengl
         IGL_INLINE void initGl();
         IGL_INLINE void updateCompanionWindow(Eigen::Vector4f);
         IGL_INLINE void shut();
+        IGL_INLINE void renderControllerAxes();
+        IGL_INLINE void handleInput();
     };
 
 // Forward declaration

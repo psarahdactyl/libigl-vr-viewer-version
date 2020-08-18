@@ -347,6 +347,7 @@ IGL_INLINE void igl::opengl::ViewerCore::draw_buffer(ViewerData& data,
 IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     ViewerData& data)
 {
+    VRapp->handleInput();
     Eigen::Vector4f viewport_ori = viewport;
     viewport << 0, 0, VRapp->getHmdWidth() , VRapp->getHmdHeight();
 
@@ -369,6 +370,8 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
 
     VRapp->predraw(vr::EVREye::Eye_Right);
     draw(data, false);
+    VRapp->renderControllerAxes();
+
     VRapp->postdraw(vr::EVREye::Eye_Right);
 
     viewport = viewport_ori;

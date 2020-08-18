@@ -243,10 +243,10 @@ namespace glfw
         // In microseconds
         double duration = 1000000.*(get_seconds()-tic);
         const double min_duration = 1000000./core().animation_max_fps;
-        /*if(duration<min_duration)
+        if(duration<min_duration)
         {
           std::this_thread::sleep_for(std::chrono::microseconds((int)(min_duration-duration)));
-        }*/
+        }
       }
       else
       {
@@ -1259,6 +1259,9 @@ IGL_INLINE void VRApplication::initOpenVR() {
         lProjectionMat(3, 0), lProjectionMat(3, 1), lProjectionMat(3, 2), lProjectionMat(3, 3));
 
     rProjectionMat = convertMatrix(ltProj);
+
+    vr::VRInput()->SetActionManifestPath("F:/GitHub/libigl-vr-viewer/build/vr_actions.json");
+
     vr::VRInput()->GetActionHandle("/actions/demo/out/Haptic_Left", &m_rHand[Left].m_actionHaptic);
     vr::VRInput()->GetInputSourceHandle("/user/hand/left", &m_rHand[Left].m_source);
     vr::VRInput()->GetActionHandle("/actions/demo/in/Hand_Left", &m_rHand[Left].m_actionPose);
@@ -1668,6 +1671,9 @@ IGL_INLINE void VRApplication::renderControllerAxes() {
         if (!m_rHand[eHand].m_bShowController)
             continue;
 
+        printf("Working");
+
+
         Eigen::Matrix4f & mat = m_rHand[eHand].m_rmat4Pose;
         Eigen::Vector4f center = mat * Eigen::Vector4f(0, 0, 0, 1);
         
@@ -1758,12 +1764,16 @@ IGL_INLINE void VRApplication::handleInput() {
     //actionSet.ulActionSet = m_actionsetDemo;
     //vr::VRInput()->UpdateActionState(&actionSet, sizeof(actionSet), 1);
 
-
-   
+    m_rHand[Left].m_bShowController = true;
+    m_rHand[Right].m_bShowController = true;
 
     for (EHand eHand = Left; eHand <= Right; ((int&)eHand)++)
     {
         vr::InputPoseActionData_t poseData;
+        printf("%d ", vr::VRInput()->GetPoseActionDataForNextFrame(m_rHand[eHand].m_actionPose, vr::TrackingUniverseStanding, &poseData, sizeof(poseData), vr::k_ulInvalidInputValueHandle));
+        printf("%d ", !poseData.bActive);
+        printf("%d\n", !poseData.pose.bPoseIsValid);
+
         if (vr::VRInput()->GetPoseActionDataForNextFrame(m_rHand[eHand].m_actionPose, vr::TrackingUniverseStanding, &poseData, sizeof(poseData), vr::k_ulInvalidInputValueHandle) != vr::VRInputError_None
             || !poseData.bActive || !poseData.pose.bPoseIsValid)
         {

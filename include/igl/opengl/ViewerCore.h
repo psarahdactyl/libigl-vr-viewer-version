@@ -120,13 +120,14 @@ namespace opengl
             Right = 1,
         };
         ControllerInfo_t m_rHand[2];
+        GLuint controllerTransformProgramID, controllerMatrixLocation;
 
-
-
+        vr::VRActionSetHandle_t m_actionsetDemo = vr::k_ulInvalidActionSetHandle;//TODO: Delete me
 
 
         int companionWindowIndexSize;
-        GLuint companionWindowVAO, companionWindowIDVertBuffer, companionWindowIDIndexBuffer, companionWindowProgramID;
+        GLuint companionWindowVAO, companionWindowIDVertBuffer, companionWindowIDIndexBuffer;
+        GLuint companionWindowProgramID;
 
         IGL_INLINE bool createFrameBuffer(FramebufferDesc& framebufferDesc);
         IGL_INLINE void setupCompanionWindow();
@@ -158,6 +159,7 @@ namespace opengl
         IGL_INLINE void updateCompanionWindow(Eigen::Vector4f);
         IGL_INLINE void shut();
         IGL_INLINE void renderControllerAxes();
+        IGL_INLINE void drawControllerAxes(Eigen::Matrix4f viewProjectionMatrix);
         IGL_INLINE void handleInput();
     };
 

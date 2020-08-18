@@ -1262,6 +1262,8 @@ IGL_INLINE void VRApplication::initOpenVR() {
 
     vr::VRInput()->SetActionManifestPath("F:/GitHub/libigl-vr-viewer/build/vr_actions.json");
 
+    vr::VRInput()->GetActionSetHandle("/actions/demo", &m_actionsetDemo);
+
     vr::VRInput()->GetActionHandle("/actions/demo/out/Haptic_Left", &m_rHand[Left].m_actionHaptic);
     vr::VRInput()->GetInputSourceHandle("/user/hand/left", &m_rHand[Left].m_source);
     vr::VRInput()->GetActionHandle("/actions/demo/in/Hand_Left", &m_rHand[Left].m_actionPose);
@@ -1543,6 +1545,36 @@ IGL_INLINE void VRApplication::initGl() {
         printf("Success creating frame buffers for right eye");
     }
     setupCompanionWindow();
+
+    create_shader_program(
+        // vertex shader
+        "#version 410\n"
+        "uniform mat4 matrix;\n"
+        "layout(location = 0) in vec4 position;\n"
+        "layout(location = 1) in vec3 v3ColorIn;\n"
+        "out vec4 v4Color;\n"
+        "void main()\n"
+        "{\n"
+        "	v4Color.xyz = v3ColorIn; v4Color.a = 1.0;\n"
+        "	gl_Position = matrix * position;\n"
+        "}\n",
+
+        // fragment shader
+        "#version 410\n"
+        "in vec4 v4Color;\n"
+        "out vec4 outputColor;\n"
+        "void main()\n"
+        "{\n"
+        "   outputColor = v4Color;\n"
+        "}\n", {},
+        controllerTransformProgramID
+    );
+
+    controllerMatrixLocation = glGetUniformLocation(controllerTransformProgramID, "matrix");
+    if (controllerMatrixLocation == -1)
+    {
+        printf("Unable to find matrix uniform in controller shader\n");
+    }
 }
 
 IGL_INLINE bool VRApplication::createFrameBuffer(FramebufferDesc& framebufferDesc) {
@@ -1656,6 +1688,18 @@ IGL_INLINE void VRApplication::setupCompanionWindow()
         companionWindowProgramID
     );
 }
+
+IGL_INLINE void VRApplication::drawControllerAxes(Eigen::Matrix4f viewProjectionMatrix) {
+    if (!hmd->IsInputAvailable())
+        return;
+    // draw the controller axis lines
+    glUseProgram(controllerTransformProgramID);
+    glUniformMatrix4fv(controllerMatrixLocation, 1, GL_FALSE, viewProjectionMatrix.data());
+    glBindVertexArray(controllerVAO);
+    glDrawArrays(GL_LINES, 0, controllerVertCount);
+    glBindVertexArray(0);
+}
+
 IGL_INLINE void VRApplication::renderControllerAxes() {
     if (!hmd->IsInputAvailable())
         return;
@@ -1669,9 +1713,6 @@ IGL_INLINE void VRApplication::renderControllerAxes() {
     {
         if (!m_rHand[eHand].m_bShowController)
             continue;
-
-        printf("Working");
-
 
         Eigen::Matrix4f & mat = m_rHand[eHand].m_rmat4Pose;
         Eigen::Vector4f center = mat * Eigen::Vector4f(0, 0, 0, 1);
@@ -1710,10 +1751,6 @@ IGL_INLINE void VRApplication::renderControllerAxes() {
         vertdataarray.push_back(end(0)); vertdataarray.push_back(end(1)); vertdataarray.push_back(end(2));
         vertdataarray.push_back(color(0)); vertdataarray.push_back(color(1)); vertdataarray.push_back(color(2));
         controllerVertCount += 2;
-
-
-
-
     }
     // Setup the VAO the first time through.
     if (controllerVAO == 0)
@@ -1750,18 +1787,18 @@ IGL_INLINE void VRApplication::renderControllerAxes() {
 
 IGL_INLINE void VRApplication::handleInput() {
     // Process SteamVR events
-    //vr::VREvent_t event;
-    //while (hmd->PollNextEvent(&event, sizeof(event)))
-    //{
-    //    ProcessVREvent(event);
-    //}
+    vr::VREvent_t event;
+    while (hmd->PollNextEvent(&event, sizeof(event)))
+    {
+        //ProcessVREvent(event);
+    }
 
-    //// Process SteamVR action state
-    //// UpdateActionState is called each frame to update the state of the actions themselves. The application
-    //// controls which action sets are active with the provided array of VRActiveActionSet_t structs.
-    //vr::VRActiveActionSet_t actionSet = { 0 };
-    //actionSet.ulActionSet = m_actionsetDemo;
-    //vr::VRInput()->UpdateActionState(&actionSet, sizeof(actionSet), 1);
+    // Process SteamVR action state
+    // UpdateActionState is called each frame to update the state of the actions themselves. The application
+    // controls which action sets are active with the provided array of VRActiveActionSet_t structs.
+    vr::VRActiveActionSet_t actionSet = { 0 };
+    actionSet.ulActionSet = m_actionsetDemo;
+    vr::VRInput()->UpdateActionState(&actionSet, sizeof(actionSet), 1);
 
     m_rHand[Left].m_bShowController = true;
     m_rHand[Right].m_bShowController = true;
@@ -1769,9 +1806,6 @@ IGL_INLINE void VRApplication::handleInput() {
     for (EHand eHand = Left; eHand <= Right; ((int&)eHand)++)
     {
         vr::InputPoseActionData_t poseData;
-        printf("%d ", vr::VRInput()->GetPoseActionDataForNextFrame(m_rHand[eHand].m_actionPose, vr::TrackingUniverseStanding, &poseData, sizeof(poseData), vr::k_ulInvalidInputValueHandle));
-        printf("%d ", !poseData.bActive);
-        printf("%d\n", !poseData.pose.bPoseIsValid);
 
         if (vr::VRInput()->GetPoseActionDataForNextFrame(m_rHand[eHand].m_actionPose, vr::TrackingUniverseStanding, &poseData, sizeof(poseData), vr::k_ulInvalidInputValueHandle) != vr::VRInputError_None
             || !poseData.bActive || !poseData.pose.bPoseIsValid)

@@ -352,37 +352,28 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     Eigen::Vector4f viewport_ori = viewport;
     viewport << 0, 0, VRapp->getHmdWidth() , VRapp->getHmdHeight();
 
-
-    //camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Left));
-    proj = VRapp->getMatrixProjectionEye(vr::EVREye::Eye_Left);
-    view = VRapp->getMatrixPoseEye(vr::EVREye::Eye_Left) * VRapp->getMatrixPoseHmd();
-    norm = view.inverse().transpose();
-
-    VRapp->predraw(vr::EVREye::Eye_Left);
-    draw(data, false);
-    VRapp->postdraw(vr::EVREye::Eye_Left);
-
-    
-    //camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Right));
-    proj = VRapp->getMatrixProjectionEye(vr::EVREye::Eye_Right);
-    //calculates view of eye by multiplying the relative position of eye to head with hmd position
-    view = VRapp->getMatrixPoseEye(vr::EVREye::Eye_Right) * VRapp->getMatrixPoseHmd();
-    norm = view.inverse().transpose();
-
-    VRapp->predraw(vr::EVREye::Eye_Right);
-    draw(data, false);
     VRapp->renderControllerAxes();
 
-    VRapp->postdraw(vr::EVREye::Eye_Right);
+    for (vr::EVREye eye = vr::EVREye::Eye_Left; eye <= vr::EVREye::Eye_Right; ((int&)eye)++)
+    {
+        //camera_translation = VRapp->GetPosition(VRapp->getEyeTransformation(vr::EVREye::Eye_Right));
+        proj = VRapp->getMatrixProjectionEye(eye);
+        //calculates view of eye by multiplying the relative position of eye to head with hmd position
+        view = VRapp->getMatrixPoseEye(eye) * VRapp->getMatrixPoseHmd();
+        norm = view.inverse().transpose();
 
+        VRapp->predraw(eye);
+        draw(data, false);
+        VRapp->drawControllerAxes(proj * view);
+        VRapp->postdraw(eye);
+    }
+    
+       
+    //Updating companion windows
     viewport = viewport_ori;
-
     VRapp->updateCompanionWindow(viewport);
 
 
-    //vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
-    //vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture);
-    //vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture);
     VRapp->submitToHMD();
 }
 

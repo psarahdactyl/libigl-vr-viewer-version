@@ -1393,7 +1393,6 @@ IGL_INLINE Eigen::Vector3f VRApplication::GetPosition(Eigen::Matrix4f matrix) {
 }
 
 IGL_INLINE void VRApplication::submitToHMD() {
-    updatePose();
 
     //vr::EColorSpace colorSpace = vr::ColorSpace_Gamma;
     vr::Texture_t leftEyeTexture = { (void*)(uintptr_t)leftEyeDesc.resolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };

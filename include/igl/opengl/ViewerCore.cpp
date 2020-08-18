@@ -347,6 +347,7 @@ IGL_INLINE void igl::opengl::ViewerCore::draw_buffer(ViewerData& data,
 IGL_INLINE void igl::opengl::ViewerCore::drawVR(
     ViewerData& data)
 {
+    VRapp->updatePose();
     VRapp->handleInput();
     Eigen::Vector4f viewport_ori = viewport;
     viewport << 0, 0, VRapp->getHmdWidth() , VRapp->getHmdHeight();

@@ -1549,14 +1549,18 @@ IGL_INLINE void VRApplication::initGl() {
     create_shader_program(
         // vertex shader
         "#version 410\n"
-        "uniform mat4 matrix;\n"
-        "layout(location = 0) in vec4 position;\n"
-        "layout(location = 1) in vec3 v3ColorIn;\n"
+        "uniform mat4 view;\n"
+        "uniform mat4 proj;\n"
+        "uniform mat4 normal_matrix;\n"
+        "out vec3 position_eye;\n"
+        "in vec3 position;\n"
+        "in vec3 v3ColorIn;\n"
         "out vec4 v4Color;\n"
         "void main()\n"
         "{\n"
-        "	v4Color.xyz = v3ColorIn; v4Color.a = 1.0;\n"
-        "	gl_Position = matrix * position;\n"
+        "   position_eye = vec3 (view * vec4 (position, 1.0));\n"
+        "	gl_Position = proj * vec4(position_eye, 1.0);\n"
+        "	v4Color = vec4(255.0 , 0.0 , 0.0 , 1.0);\n"
         "}\n",
 
         // fragment shader
@@ -1570,11 +1574,11 @@ IGL_INLINE void VRApplication::initGl() {
         controllerTransformProgramID
     );
 
-    controllerMatrixLocation = glGetUniformLocation(controllerTransformProgramID, "matrix");
-    if (controllerMatrixLocation == -1)
-    {
-        printf("Unable to find matrix uniform in controller shader\n");
-    }
+    //controllerMatrixLocation = glGetUniformLocation(controllerTransformProgramID, "matrix");
+    //if (controllerMatrixLocation == -1)
+    //{
+    //    printf("Unable to find matrix uniform in controller shader\n");
+    //}
 }
 
 IGL_INLINE bool VRApplication::createFrameBuffer(FramebufferDesc& framebufferDesc) {
@@ -1689,12 +1693,21 @@ IGL_INLINE void VRApplication::setupCompanionWindow()
     );
 }
 
-IGL_INLINE void VRApplication::drawControllerAxes(Eigen::Matrix4f viewProjectionMatrix) {
+IGL_INLINE void VRApplication::drawControllerAxes(Eigen::Matrix4f view, Eigen::Matrix4f proj, Eigen::Matrix4f norm ) {
     if (!hmd->IsInputAvailable())
         return;
     // draw the controller axis lines
     glUseProgram(controllerTransformProgramID);
-    glUniformMatrix4fv(controllerMatrixLocation, 1, GL_FALSE, viewProjectionMatrix.data());
+
+    // Send transformations to the GPU
+    GLint viewi = glGetUniformLocation(controllerTransformProgramID, "view");
+    GLint proji = glGetUniformLocation(controllerTransformProgramID, "proj");
+    GLint normi = glGetUniformLocation(controllerTransformProgramID, "normal_matrix");
+    glUniformMatrix4fv(viewi, 1, GL_FALSE, view.data());
+    glUniformMatrix4fv(proji, 1, GL_FALSE, proj.data());
+    glUniformMatrix4fv(normi, 1, GL_FALSE, norm.data());
+
+    //glUniformMatrix4fv(controllerMatrixLocation, 1, GL_FALSE, viewProjectionMatrix.data());
     glBindVertexArray(controllerVAO);
     glDrawArrays(GL_LINES, 0, controllerVertCount);
     glBindVertexArray(0);
@@ -1720,8 +1733,8 @@ IGL_INLINE void VRApplication::renderControllerAxes() {
         for (int i = 0; i < 3; ++i) {
             Eigen::Vector3f color(0, 0, 0);
             Eigen::Vector4f point(0, 0, 0, 1);
-            point[i] += 0.05f;
-            color[i] = 1.0;
+            point(i) += 0.05f;
+            color(i) = 1.0;
             point = mat * point;
             vertdataarray.push_back(center(0));
             vertdataarray.push_back(center(1));

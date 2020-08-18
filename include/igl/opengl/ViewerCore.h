@@ -159,7 +159,7 @@ namespace opengl
         IGL_INLINE void updateCompanionWindow(Eigen::Vector4f);
         IGL_INLINE void shut();
         IGL_INLINE void renderControllerAxes();
-        IGL_INLINE void drawControllerAxes(Eigen::Matrix4f viewProjectionMatrix);
+        IGL_INLINE void drawControllerAxes(Eigen::Matrix4f, Eigen::Matrix4f, Eigen::Matrix4f);
         IGL_INLINE void handleInput();
     };
 

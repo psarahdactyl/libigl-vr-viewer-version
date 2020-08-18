@@ -364,7 +364,7 @@ IGL_INLINE void igl::opengl::ViewerCore::drawVR(
 
         VRapp->predraw(eye);
         draw(data, false);
-        VRapp->drawControllerAxes(proj * view);
+        VRapp->drawControllerAxes(view, proj, norm);
         VRapp->postdraw(eye);
     }
     

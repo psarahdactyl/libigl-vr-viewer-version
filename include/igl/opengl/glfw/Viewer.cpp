@@ -1551,13 +1551,13 @@ IGL_INLINE void VRApplication::initGl() {
         "#version 410\n"
         "uniform mat4 view;\n"
         "uniform mat4 proj;\n"
-        "layout(location = 0) in vec3 position;\n"
+        "layout(location = 0) in vec4 position;\n"
         "layout(location = 1) in vec3 v3ColorIn;\n"
         "out vec3 position_eye;\n"
         "out vec4 v4Color;\n"
         "void main()\n"
         "{\n"
-        "   position_eye = vec3 (view * vec4(position, 1.0));\n"
+        "   position_eye = vec3 (view * position);\n"
         "	gl_Position = proj * vec4(position_eye, 1.0);\n"
         "	v4Color.xyz = v3ColorIn;\n"
         "	v4Color.a = 1.0;\n"
@@ -1696,6 +1696,9 @@ IGL_INLINE void VRApplication::setupCompanionWindow()
 IGL_INLINE void VRApplication::drawControllerAxes(Eigen::Matrix4f view, Eigen::Matrix4f proj) {
     if (!hmd->IsInputAvailable())
         return;
+
+    glEnable(GL_DEPTH_TEST);
+
     // draw the controller axis lines
     glUseProgram(controllerTransformProgramID);
 
@@ -1709,6 +1712,8 @@ IGL_INLINE void VRApplication::drawControllerAxes(Eigen::Matrix4f view, Eigen::M
     glBindVertexArray(controllerVAO);
     glDrawArrays(GL_LINES, 0, controllerVertCount);
     glBindVertexArray(0);
+
+    glUseProgram(0);
 }
 
 IGL_INLINE void VRApplication::renderControllerAxes() {
@@ -1751,7 +1756,6 @@ IGL_INLINE void VRApplication::renderControllerAxes() {
             vertdataarray.push_back(color(2));
 
             controllerVertCount += 2;
-            
         }
         Eigen::Vector4f start = mat * Eigen::Vector4f(0, 0, -0.02f, 1);
         Eigen::Vector4f end = mat * Eigen::Vector4f(0, 0, -39.f, 1);
@@ -1791,7 +1795,6 @@ IGL_INLINE void VRApplication::renderControllerAxes() {
     // set vertex data if we have some
     if (vertdataarray.size() > 0)
     {
-        //$ TODO: Use glBufferSubData for this...
         glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertdataarray.size(), &vertdataarray[0], GL_STREAM_DRAW);
     }
 

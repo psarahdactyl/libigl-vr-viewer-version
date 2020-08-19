@@ -103,7 +103,7 @@ namespace opengl
         void initOpenVR();
 
         GLuint controllerVertBuffer;
-        GLuint controllerVAO;
+        GLuint controllerVAO = 0;
         struct ControllerInfo_t
         {
             vr::VRInputValueHandle_t m_source = vr::k_ulInvalidInputValueHandle;

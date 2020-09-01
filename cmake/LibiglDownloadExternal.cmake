@@ -168,6 +168,14 @@ function(igl_download_predicates)
 	)
 endfunction()
 
+## Openvr
+function(igl_download_openvr)
+	igl_download_project(openvr
+		GIT_REPOSITORY https://github.com/ValveSoftware/openvr.git
+		GIT_TAG        3a010f0f668d8de59fcba75b14e08a6a08ec68a0
+	)
+endfunction()
+
 ################################################################################
 
 ## Test data

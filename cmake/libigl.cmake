@@ -36,7 +36,6 @@ option(LIBIGL_WITH_PREDICATES        "Use exact predicates"         OFF)
 option(LIBIGL_WITH_XML               "Use XML"                      OFF)
 option(LIBIGL_WITHOUT_COPYLEFT       "Disable Copyleft libraries"   OFF)
 option(LIBIGL_EXPORT_TARGETS         "Export libigl CMake targets"  OFF)
-option(LIBIGL_WITH_OPENVR            "Use OPENVR"                   OFF)
 
 if(LIBIGL_BUILD_PYTHON)
   message(FATAL_ERROR "Python bindings have been removed in this version. Please use an older version of libigl, or wait for the new bindings to be released.")
@@ -474,19 +473,6 @@ if(LIBIGL_WITH_XML)
   compile_igl_module("xml")
   target_link_libraries(igl_xml ${IGL_SCOPE} tinyxml2)
   target_include_directories(igl_xml ${IGL_SCOPE} ${TINYXML2_DIR})
-endif()
-
-################################################################################
-### Compile the openvr part ###
-if(LIBIGL_WITH_OPENVR)
-  set(OPENVR_DIR "${LIBIGL_EXTERNAL}/openvr")
-  if(NOT TARGET openvr)
-    igl_download_openvr()
-    add_subdirectory("${OPENVR_DIR}" "openvr")
-  endif()
-  compile_igl_module("openvr")
-  target_link_libraries(igl_openvr ${IGL_SCOPE} openvr)
-  target_include_directories(igl_openvr ${IGL_SCOPE} ${PREDICATES_DIR})
 endif()
 
 ################################################################################

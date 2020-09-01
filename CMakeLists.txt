@@ -42,7 +42,6 @@ option(LIBIGL_WITH_TRIANGLE          "Use Triangle"                 ON)
 option(LIBIGL_WITH_PREDICATES        "Use exact predicates"         ON)
 option(LIBIGL_WITH_XML               "Use XML"                      ON)
 option(LIBIGL_WITH_PYTHON            "Use Python"                   OFF)
-option(LIBIGL_WITH_OPENVR            "Use OPENVR"                   ON)
 ### End
 
 if(${LIBIGL_WITH_PYTHON})

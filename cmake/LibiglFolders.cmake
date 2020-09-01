@@ -33,7 +33,6 @@ igl_folder_targets("ThirdParty"
     tetgen
     tinyxml2
     triangle
-    openvr
 )
 
 igl_folder_targets("Libigl"
@@ -49,7 +48,6 @@ igl_folder_targets("Libigl"
     igl_tetgen
     igl_triangle
     igl_xml
-    igl_openvr
 )
 
 igl_folder_targets("Unit Tests"
